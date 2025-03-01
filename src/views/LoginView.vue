@@ -3,7 +3,7 @@
     <div class="form-container">
       <div class="form-header">
         <img :src="logo" alt="logo" class="logo" />
-        <h1 class="title">Mega login</h1>
+        <h1 class="title">Mega login XD</h1>
       </div>
       <form @submit.prevent="login" class="form">
         <label class="label" for="document">Documento</label>
