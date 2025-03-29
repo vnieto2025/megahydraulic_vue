@@ -1,19 +1,5 @@
 <template>
     <LayoutView>
-      <!-- <div class="card-container">
-        <div class="card" v-for="(modulo, index) in modulos" :key="index">
-          <div class="card-header">
-            <img :src="`/${modulo.icon}`" :alt=modulo.icon>
-            <h5 class="card-title">{{modulo.name}}</h5>
-          </div>
-          <div class="card-body">
-            <p class="card-text">{{ modulo.description }}</p>
-          </div>
-          <div class="card-footer">
-            <button class="primary-button login-button" @click="go_action(modulo.action)">Ir</button>
-          </div>
-        </div>
-      </div> -->
       <div class="container-dashboard">
             <div class="form-container-dashboard">
                 <div class="card-container-dashboard">
