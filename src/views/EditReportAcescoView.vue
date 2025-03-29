@@ -1,26 +1,26 @@
 <template>
     <LayoutView>
-        <form @submit.prevent="createReport">
-            <h2>Formulario de Creación de Reporte Acesco</h2>
+        <form @submit.prevent="editReport">
+            <h2>Formulario de Edición de Reporte Acesco</h2>
             <div class="form-group">
                 <label for="txt_fecha_actividad">Fecha Actividad:</label>
-                <input type="date" id="txt_fecha_actividad" v-model="fecha_actividad" required>
+                <input type="date" id="txt_fecha_actividad" v-model="fecha_actividad">
             </div>
             <div class="form-group">
                 <label for="select_cliente">Cliente:</label>
-                <select id="select_cliente" v-model="cliente" @change="onClienteChange" required>
+                <select id="select_cliente" v-model="cliente_seleccionado" @change="onClienteChange" required>
                     <option v-for="client in client_list" :key="client.id" :value="client.id">{{ client.name }}</option>
                 </select>
             </div>
             <div class="form-group">
                 <label for="select_linea">Línea:</label>
-                <select id="select_linea" v-model="linea" required>
+                <select id="select_linea" v-model="linea_seleccionada" required>
                     <option v-for="line in line_list" :key="line.id" :value="line.id">{{ line.name }}</option>
                 </select>
             </div>
             <div class="form-group">
                 <label for="select_persona">Persona que recibe:</label>
-                <select id="select_persona" v-model="persona" required>
+                <select id="select_persona" v-model="persona_seleccionada" required>
                     <option v-for="person in person_list" :key="person.id" :value="person.id">{{ person.name }}</option>
                 </select>
             </div>
@@ -50,12 +50,12 @@
 
             <div class="form-group">
                 <label for="txt_descripcion_servicio">Descripción del servicio:</label>
-                <textarea id="txt_descripcion_servicio" v-model="descripcion_servicio" required></textarea>
+                <textarea id="txt_descripcion_servicio" v-model="descripcion_servicio"></textarea>
             </div>
 
             <div class="form-group">
                 <label for="txt_informacion">Información:</label>
-                <textarea id="txt_informacion" v-model="informacion" required></textarea>
+                <textarea id="txt_informacion" v-model="informacion"></textarea>
             </div>
 
             <div class="form-group">
@@ -75,14 +75,34 @@
 
             <hr>
 
-            <!-- Input de imágenes fijos -->
-            <div class="form-group">
+            <div class="form-group mt-3">
                 <label for="registro_evidencia_antes">Registro Evidencia Antes:</label>
-                <input type="file" id="registro_evidencia_antes" @change="handleImageChange($event, 0)" accept="image/*" class="form-control" required>
+                <div v-if="imagenes[0]">
+                    <!-- Miniatura de la imagen -->
+                    <img
+                        :src="imagenes[0].startsWith('data:') ? imagenes[0] : `${apiUrl}/${imagenes[0]}`"
+                        alt="Vista previa"
+                        class="img-thumbnail"
+                        style="max-width: 150px; max-height: 100px; cursor: pointer;"
+                        @click="enlargeImage(imagenes[0].startsWith('data:') ? imagenes[0] : `${apiUrl}/${imagenes[0]}`)"
+                    />
+                </div>
+                <input type="file" id="registro_evidencia_antes" @change="handleImageChange($event, 0)" accept="image/*" class="form-control">
             </div>
-            <div class="form-group">
+
+            <div class="form-group mt-3">
                 <label for="registro_evidencia_despues">Registro Evidencia Despues:</label>
-                <input type="file" id="registro_evidencia_despues" @change="handleImageChange($event, 1)" accept="image/*" class="form-control" required>
+                <div v-if="imagenes[1]">
+                    <!-- Miniatura de la imagen -->
+                    <img
+                        :src="imagenes[1].startsWith('data:') ? imagenes[1] : `${apiUrl}/${imagenes[1]}`"
+                        alt="Vista previa"
+                        class="img-thumbnail"
+                        style="max-width: 150px; max-height: 100px; cursor: pointer;"
+                        @click="enlargeImage(imagenes[1].startsWith('data:') ? imagenes[1] : `${apiUrl}/${imagenes[1]}`)"
+                    />
+                </div>
+                <input type="file" id="registro_evidencia_despues" @change="handleImageChange($event, 1)" accept="image/*" class="form-control">
             </div>
 
             <hr>
@@ -96,10 +116,12 @@
                 <label for="txt_tecnico2">Técnico 2</label>
                 <input type="text" id="txt_valor_servicio" v-model="tecnico2">
             </div>
+
+            <hr>
             
             <button type="submit" class="btn btn-primary mt-3" :disabled="isLoading">
                 <span v-if="isLoading" class="spinner-border spinner-border-sm"></span>
-                {{ isLoading ? 'Guardando...' : 'Crear' }}
+                {{ isLoading ? 'Actualizando...' : 'Actualizar' }}
             </button>
         </form>
 
@@ -109,14 +131,14 @@
                 <div class="modal-content">
                     <div class="modal-header">
                         <h5 class="modal-title" id="exitoModalLabel">Modal Reporte</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @click="goListaReportes"></button>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
                         {{ msg }}
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-success" data-bs-dismiss="modal" @click="generar_pdf">Generar PDF</button>
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" @click="goListaReportes">Cerrar</button>
+                        <button type="button" class="btn btn-success" data-bs-dismiss="modal" @click="generar_pdf()">Generar PDF</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
                     </div>
                 </div>
             </div>
@@ -163,12 +185,13 @@ const line_list = ref([]);
 const person_list = ref([]);
 const servicios_list = ref([]);
 const equipos_list = ref([]);
-const imagenes = ref([null, null]);
+const imagenes = ref([]);
+const data_report = ref({});
 const fecha_actividad = ref('');
 const fecha_actividad_formateada = ref('');
-const cliente = ref('');
-const linea = ref('');
-const persona = ref('');
+const cliente_seleccionado = ref(null);
+const linea_seleccionada = ref(null);
+const persona_seleccionada = ref(null);
 const zona_trabajo = ref('');
 const om = ref('');
 const solped = ref('');
@@ -192,10 +215,11 @@ const recomendaciones = ref('');
 const tecnico1 = ref('');
 const tecnico2 = ref('');
 
+
 // Acceder al enrutador
 const router = useRouter();
 
-const createReport = async () => {
+const editReport = async () => {
     try {
         if (!token) {
             router.push('/'); // Redirigir al login si no hay token
@@ -207,23 +231,14 @@ const createReport = async () => {
 
         fecha_actividad_formateada.value = `${day}-${month}-${year}`
 
-        if (tecnico1.value) {
-            tecnico1.value = tecnico1.value.toUpperCase();
-        }
-        if (tecnico2.value) {
-            tecnico2.value = tecnico2.value.toUpperCase();
-        }
-        if (zona_trabajo.value) {
-            zona_trabajo.value = zona_trabajo.value.toUpperCase();
-        }
-
         const response = await axios.post(
-            `${apiUrl}/reports/create_report_acesco`,
+            `${apiUrl}/reports/edit_report_acesco`,
             {
+                report_id: report_id.value,
                 activity_date: fecha_actividad_formateada.value,
-                client_id: cliente.value,
-                client_line_id: linea.value,
-                person_receives: persona.value,
+                client_id: cliente_seleccionado.value,
+                client_line_id: linea_seleccionada.value,
+                person_receives: persona_seleccionada.value,
                 work_zone: zona_trabajo.value,
                 om: om.value,
                 solped: solped.value,
@@ -234,9 +249,9 @@ const createReport = async () => {
                 service_value: valor_servicio.value,
                 conclutions: conclusiones.value,
                 recommendations: recomendaciones.value,
+                files: imagenes.value,
                 tech_1: tecnico1.value,
                 tech_2: tecnico2.value,
-                files: imagenes.value,
                 user_id: user_id,
             },
             {
@@ -254,12 +269,12 @@ const createReport = async () => {
             error.value = response.data.message
         }
     } catch (error) {
-        console.error('Error al guardar reporte:', error);
+        console.error('Error al editar reporte:', error);
         modalErrorInstance.value.show();
         errorMsg.value = error.response.data.message;
         if (error.response.status === 401) {
-          token_status.value = error.response.status
-          errorMsg.value = error.response.data.detail;
+            token_status.value = error.response.status
+            errorMsg.value = error.response.data.detail;
         } else if (error.response.status === 403) {
             token_status.value = error.response.status
             errorMsg.value = error.response.data.detail;
@@ -297,15 +312,14 @@ const generar_pdf = async () => {
             document.body.appendChild(link);
             link.click();  // Ejecutar el click para descargar el archivo
             document.body.removeChild(link);  // Limpiar el DOM
-            goListaReportes();
         }
     } catch (error) {
         console.error('Error al generar pdf:', error);
         modalErrorInstance.value.show();
         errorMsg.value = error.response.data.message;
         if (error.response.status === 401) {
-          token_status.value = error.response.status
-          errorMsg.value = "El token ha expirado.";
+            token_status.value = error.response.status
+            errorMsg.value = "El token ha expirado.";
         } else if (error.response.status === 403) {
             token_status.value = error.response.status
             errorMsg.value = error.response.data.detail;
@@ -314,6 +328,42 @@ const generar_pdf = async () => {
 };
 const cargarDatos = async () => {
     try {
+        const response_report = await axios.post(
+            `${apiUrl}/reports/generate_report_acesco`,
+            {
+                report_id: report_id.value,
+                flag: false
+            },
+            {
+                headers: {
+                    Accept: "application/json",
+                    Authorization: `Bearer ${token}`
+                },
+            }
+        );
+        
+        if (response_report.status === 200) {
+            msg.value = response_report.data.message;
+            data_report.value = response_report.data.data;
+            fecha_actividad.value = data_report.value.activity_date;
+            zona_trabajo.value = data_report.value.work_zone;
+            om.value = data_report.value.om;
+            solped.value = data_report.value.solped;
+            orden_compra.value = data_report.value.buy_order;
+            posicion.value = data_report.value.position;
+            cliente_seleccionado.value = data_report.value.client_id;
+            linea_seleccionada.value = data_report.value.client_line_id;
+            persona_seleccionada.value = data_report.value.person_receive_id;
+            descripcion_servicio.value = data_report.value.service_description;
+            informacion.value = data_report.value.information;
+            valor_servicio.value = data_report.value.service_value;
+            conclusiones.value = data_report.value.conclutions;
+            recomendaciones.value = data_report.value.recommendations;
+            imagenes.value = data_report.value.files.map(file => (file.path));
+            tecnico1.value = data_report.value.tech_1;
+            tecnico2.value = data_report.value.tech_2;
+        }
+
         const response = await axios.post(
             `${apiUrl}/params/get_clients`, {},
             {
@@ -357,13 +407,15 @@ const cargarDatos = async () => {
             equipos_list.value = responseEquipments.data.data;
         }
 
+        onClienteChange();
+
     } catch (error) {
         console.error('Error al cargar los datos:', error);
         modalErrorInstance.value.show();
         errorMsg.value = error.response.data.message;
         if (error.response.status === 401) {
-          token_status.value = error.response.status
-          errorMsg.value = error.response.data.detail;
+            token_status.value = error.response.status
+            errorMsg.value = error.response.data.detail;
         } else if (error.response.status === 403) {
             token_status.value = error.response.status
             errorMsg.value = error.response.data.detail;
@@ -376,7 +428,7 @@ const onClienteChange = async () => {
         // Carga de líneas asociadas al cliente seleccionado
         const responseLineas = await axios.post(
             `${apiUrl}/params/get_lines_by_client`, 
-            { client: cliente.value },
+            { client: cliente_seleccionado.value },
             {
                 headers: {
                     Accept: "application/json",
@@ -389,7 +441,7 @@ const onClienteChange = async () => {
         // Carga de personas asociadas al cliente seleccionado
         const responsePersonas = await axios.post(
             `${apiUrl}/params/get_users_by_client`, 
-            { client: cliente.value },
+            { client: cliente_seleccionado.value },
             {
                 headers: {
                     Accept: "application/json",
@@ -404,9 +456,9 @@ const onClienteChange = async () => {
         modalErrorInstance.value.show();
         errorMsg.value = error.response.data.message;
         if (error.response.status === 401) {
-          token_status.value = error.response.status
-          errorMsg.value = error.response.data.detail;
-        }  else if (error.response.status === 403) {
+            token_status.value = error.response.status
+            errorMsg.value = error.response.data.detail;
+        } else if (error.response.status === 403) {
             token_status.value = error.response.status
             errorMsg.value = error.response.data.detail;
         }
@@ -417,25 +469,26 @@ const handleImageChange = async (event, index) => {
     if (file) {
         const reader = new FileReader();
         reader.onload = () => {
-            imagenes.value[index] = reader.result; // Base64 de la imagen
+            // Actualizamos directamente el valor en el índice correspondiente
+            imagenes.value[index] = reader.result
         };
         reader.readAsDataURL(file);
     }
 };
-const goListaReportes = () => {
-    router.push('/reports-acesco');
+const enlargeImage = async (path) => {
+    window.open(path, "_blank");
 };
 // Función para manejar el cierre de sesión
 function logout() {
   localStorage.clear();
   router.push('/'); // Redirigir al login
-};
+}
 function redirigir_dashboard() {
   router.push('/dashboard'); // Redirigir al dashboard
 };
-
 // Código que se ejecuta al montar el componente
 onMounted(() => {
+    report_id.value = router.currentRoute.value.params.id;
     modalInstance.value = new Modal(exitoModal);
     modalErrorInstance.value = new Modal(errorModal);
     if (!token) {
@@ -539,6 +592,13 @@ button {
     overflow: hidden; /* Evita que el texto se desborde */
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.img-thumbnail {
+  border: 2px solid #ddd;
+  border-radius: 4px;
+  padding: 5px;
+  margin-right: 10px;
 }
 
 hr {
