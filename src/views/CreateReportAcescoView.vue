@@ -87,6 +87,27 @@
 
             <hr>
 
+            <!-- Input dinámico para agregar imágenes -->
+            <div class="form-group mt-3">
+                <h5>Anexos</h5>
+                <div v-for="(anexo, index) in anexos" :key="index" class="mb-2">
+                <input
+                    type="file"
+                    @change="handleImageChangeDinamic($event, index)"
+                    class="form-control"
+                    accept="image/*"
+                />
+                <button type="button" class="btn btn-danger mt-2" @click="removeImageInput(index)">
+                    Eliminar
+                </button>
+                </div>
+                <button type="button" class="btn btn-primary mt-3" @click="addImageInput">
+                    Agregar Anexo
+                </button>
+            </div>
+
+            <hr>
+
             <div class="form-group">
                 <label for="txt_tecnico1">Técnico 1:</label>
                 <input type="text" id="txt_valor_servicio" v-model="tecnico1" required>
@@ -164,6 +185,7 @@ const person_list = ref([]);
 const servicios_list = ref([]);
 const equipos_list = ref([]);
 const imagenes = ref([null, null]);
+const anexos = ref([]);
 const fecha_actividad = ref('');
 const fecha_actividad_formateada = ref('');
 const cliente = ref('');
@@ -237,6 +259,7 @@ const createReport = async () => {
                 tech_1: tecnico1.value,
                 tech_2: tecnico2.value,
                 files: imagenes.value,
+                anexos: anexos.value,
                 user_id: user_id,
             },
             {
@@ -432,6 +455,26 @@ function logout() {
 };
 function redirigir_dashboard() {
   router.push('/dashboard'); // Redirigir al dashboard
+};
+
+const addImageInput = async () => {
+    // Agregamos un elemento vacío a la lista de imágenes
+    anexos.value.push({ img: ""});
+};
+const removeImageInput = async (index) => {
+    // Eliminamos una imagen de la lista
+    anexos.value.splice(index, 1);
+};
+const handleImageChangeDinamic = async (event, index) => {
+    const file = event.target.files[0]; // Obtenemos el archivo cargado
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = () => {
+            // Actualizamos directamente el valor en el índice correspondiente
+            anexos.value[index] = reader.result
+        };
+        reader.readAsDataURL(file);
+    }
 };
 
 // Código que se ejecuta al montar el componente

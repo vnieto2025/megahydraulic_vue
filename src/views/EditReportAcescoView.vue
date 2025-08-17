@@ -107,6 +107,37 @@
 
             <hr>
 
+            <!-- Input dinámico para agregar anexos -->
+            <div class="form-group mt-3">
+                <h5>Anexos</h5>
+                <div v-for="(image, index) in anexos" :key="index" class="mb-2">
+                    <div v-if="image">
+                        <!-- Miniatura de la imagen -->
+                        <img
+                            :src="image.startsWith('data:') ? image : `${apiUrl}/${image}`"
+                            alt="Vista previa"
+                            class="img-thumbnail"
+                            style="max-width: 150px; max-height: 100px; cursor: pointer;"
+                            @click="enlargeImage(image.startsWith('data:') ? image : `${apiUrl}/${image}`)"
+                        />
+                    </div>
+                    <input
+                        type="file"
+                        @change="handleImageChangeDinamic($event, index)"
+                        class="form-control"
+                        accept="image/*"
+                    />
+                    <button type="button" class="btn btn-danger mt-2" @click="removeImageInput(index)">
+                        Eliminar
+                    </button>
+                </div>
+                <button type="button" class="btn btn-primary mt-3" @click="addImageInput">
+                    Agregar imagen
+                </button>
+            </div>
+
+            <hr>
+
             <div class="form-group">
                 <label for="txt_tecnico1">Técnico 1:</label>
                 <input type="text" id="txt_valor_servicio" v-model="tecnico1" required>
@@ -186,6 +217,7 @@ const person_list = ref([]);
 const servicios_list = ref([]);
 const equipos_list = ref([]);
 const imagenes = ref([]);
+const anexos = ref([]);
 const data_report = ref({});
 const fecha_actividad = ref('');
 const fecha_actividad_formateada = ref('');
@@ -250,6 +282,7 @@ const editReport = async () => {
                 conclutions: conclusiones.value,
                 recommendations: recomendaciones.value,
                 files: imagenes.value,
+                anexos: anexos.value,
                 tech_1: tecnico1.value,
                 tech_2: tecnico2.value,
                 user_id: user_id,
@@ -360,6 +393,7 @@ const cargarDatos = async () => {
             conclusiones.value = data_report.value.conclutions;
             recomendaciones.value = data_report.value.recommendations;
             imagenes.value = data_report.value.files.map(file => (file.path));
+            anexos.value = data_report.value.anexos.map(file => (file.path));
             tecnico1.value = data_report.value.tech_1;
             tecnico2.value = data_report.value.tech_2;
         }
@@ -486,6 +520,27 @@ function logout() {
 function redirigir_dashboard() {
   router.push('/dashboard'); // Redirigir al dashboard
 };
+const handleImageChangeDinamic = async (event, index) => {
+    const file = event.target.files[0]; // Obtenemos el archivo cargado
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = () => {
+            // Actualizamos directamente el valor en el índice correspondiente
+            anexos.value[index] = reader.result
+        };
+        reader.readAsDataURL(file);
+    }
+};
+
+const addImageInput = async () => {
+    // Agregamos un elemento vacío a la lista de imágenes
+    anexos.value.push("");
+};
+const removeImageInput = async (index) => {
+    // Eliminamos una imagen de la lista
+    anexos.value.splice(index, 1);
+};
+
 // Código que se ejecuta al montar el componente
 onMounted(() => {
     report_id.value = router.currentRoute.value.params.id;
