@@ -61,7 +61,7 @@
       </div>
 
       <div class="container-list" v-if="report_list">
-        <table class="table table-striped table-hover" v-if="report_list">
+        <table class="table table-hover" v-if="report_list">
           <thead>
               <tr>
                   <th>Consecutivo</th>
@@ -80,23 +80,23 @@
           </thead>
           <tbody>
               <tr v-for="report in report_list" :key="report.id">
-              <td>{{ report.id }}</td>
-              <td>{{ report.activity_date }}</td>
-              <td>{{ report.client_name }}</td>
-              <td>{{ report.client_line }}</td>
-              <td>{{ report.person_receive_name }}</td>
-              <td>{{ report.om }}</td>
-              <td>{{ report.solped }}</td>
-              <td>{{ report.buy_order }}</td>
-              <td>{{ report.position }}</td>
-              <td>{{ report.equipment_name }}</td>
-              <td>{{ report.user_name }}</td>
-              <td class="th-icons">
-                <router-link :to="`/report/edit/${report.id}`" ><img :src="ojo" alt="eye icon"></router-link>
-                <a href="#"><img :src="pdf" alt="pdf icon" @click="generar_pdf(report.id)"></a>
-                <td v-if="user_type_id == 1">
+              <td data-label="Consecutivo">{{ report.id }}</td>
+              <td data-label="Fecha Actividad">{{ report.activity_date }}</td>
+              <td data-label="Cliente">{{ report.client_name }}</td>
+              <td data-label="Línea">{{ report.client_line }}</td>
+              <td data-label="Recibe">{{ report.person_receive_name }}</td>
+              <td data-label="OM">{{ report.om }}</td>
+              <td data-label="Solped">{{ report.solped }}</td>
+              <td data-label="Orden de Compra">{{ report.buy_order }}</td>
+              <td data-label="Posición">{{ report.position }}</td>
+              <td data-label="Nombre de equipo">{{ report.equipment_name }}</td>
+              <td data-label="Usuario">{{ report.user_name }}</td>
+              <td data-label="Actions" class="th-icons">
+                <router-link :to="`/report/edit/${report.id}`" class="icon-btn"><img :src="ojo" alt="eye icon"></router-link>
+                <a href="#" class="icon-btn"><img :src="pdf" alt="pdf icon" @click="generar_pdf(report.id)"></a>
+                <span v-if="user_type_id == 1" class="icon-btn">
                   <img class="icon_deactivate" :src="desactivar" alt="desactivar icon" @click="modalConfirm(report.id)">
-                </td>
+                </span>
               </td>
               </tr>
           </tbody>
@@ -500,18 +500,51 @@ html {
   margin-bottom: 20px;
 }
 
+.container-list table {
+  border-collapse: separate;
+  border-spacing: 0 8px; /* Espaciado entre filas */
+}
+
 .container-list table img {
   width: 25px;
+  transition: transform 0.2s ease;
+}
+
+.container-list table img:hover {
+  transform: scale(1.2);
 }
 
 .th-icons {
   display: flex;
-  justify-content: space-around;
+  justify-content: center;
   align-items: center;
+  gap: 12px; /* Espaciado entre botones de acción */
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
 }
 
 .icon_deactivate{
   cursor: pointer;
+}
+
+/* Table Hover Effects */
+.table-hover tbody tr {
+  transition: all 0.3s ease;
+  background-color: white;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+.table-hover tbody tr:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+  background-color: #f8f9fa;
+  z-index: 1;
+  position: relative;
 }
 
 .pagination {
@@ -540,6 +573,11 @@ html {
   margin: 0 5px;
   border-radius: 5px;
   cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.pagination button:hover:not(:disabled) {
+  background-color: #1c3342;
 }
 
 .pagination button:disabled {
@@ -550,5 +588,65 @@ html {
 .pagination span {
   margin: 0 10px;
   font-size: 1.4rem;
+}
+
+/* Responsive Design for Mobile */
+@media (max-width: 768px) {
+  .filter-container {
+    grid-template-columns: 1fr;
+  }
+
+  /* Force table to not be like tables anymore */
+  table, thead, tbody, th, td, tr { 
+    display: block; 
+  }
+  
+  /* Hide table headers (but not display: none;, for accessibility) */
+  thead tr { 
+    position: absolute;
+    top: -9999px;
+    left: -9999px;
+  }
+  
+  tr { 
+    border: 1px solid #ccc; 
+    margin-bottom: 15px;
+    border-radius: 8px;
+    background-color: white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    padding: 10px;
+  }
+  
+  td { 
+    /* Behave  like a "row" */
+    border: none;
+    border-bottom: 1px solid #eee; 
+    position: relative;
+    padding-left: 50%; 
+    text-align: right;
+    padding: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  td:last-child {
+    border-bottom: 0;
+    justify-content: center;
+    padding-top: 15px;
+  }
+
+  td::before { 
+    /* Now like a table header */
+    content: attr(data-label);
+    font-weight: bold;
+    text-align: left;
+    color: #2a475f;
+  }
+
+  .th-icons {
+    width: 100%;
+    justify-content: space-evenly;
+  }
 }
 </style>
