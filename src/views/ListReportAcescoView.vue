@@ -60,10 +60,23 @@
         </div>
       </div>
 
+      <!-- Botón de descarga masiva -->
+      <div class="bulk-actions" v-if="selectedReports.length > 0">
+        <button class="btn btn-primary" @click="descargarPDFsMasivo">
+          Descargar {{ selectedReports.length }} PDF(s) seleccionados
+        </button>
+        <button class="btn btn-secondary" @click="limpiarSeleccion">
+          Limpiar selección
+        </button>
+      </div>
+
       <div class="container-list" v-if="report_list">
         <table class="table table-hover" v-if="report_list">
           <thead>
               <tr>
+                  <th>
+                    <input type="checkbox" @change="toggleSelectAll" :checked="isAllSelected">
+                  </th>
                   <th>Consecutivo</th>
                   <th>Fecha Actividad</th>
                   <th>Cliente</th>
@@ -80,6 +93,9 @@
           </thead>
           <tbody>
               <tr v-for="report in report_list" :key="report.id">
+              <td data-label="Seleccionar">
+                <input type="checkbox" :value="report.id" v-model="selectedReports">
+              </td>
               <td data-label="Consecutivo">{{ report.id }}</td>
               <td data-label="Fecha Actividad">{{ report.activity_date }}</td>
               <td data-label="Cliente">{{ report.client_name }}</td>
@@ -93,7 +109,7 @@
               <td data-label="Usuario">{{ report.user_name }}</td>
               <td data-label="Actions" class="th-icons">
                 <router-link :to="`/report-acesco/edit/${report.id}`" class="icon-btn"><img :src="ojo" alt="eye icon"></router-link>
-                <a href="#" class="icon-btn"><img :src="pdf" alt="pdf icon" @click="generar_pdf(report.id)"></a>
+                <span class="icon-btn" @click="generar_pdf(report.id)"><img :src="pdf" alt="pdf icon"></span>
                 <span v-if="user_type_id == 1" class="icon-btn">
                   <img class="icon_deactivate" :src="desactivar" alt="desactivar icon" @click="modalConfirm(report.id)">
                 </span>
@@ -209,7 +225,7 @@
 
 <script setup>
 import apiUrl from "../../config.js";
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useRouter } from "vue-router";
 import axios from 'axios';
 import LayoutView from '../views/Layouts/LayoutView.vue';
@@ -248,6 +264,7 @@ const state = ref(true);
 const errorMsg = ref('');
 const token_status = ref(0);
 const pregunta = ref('');
+const selectedReports = ref([]);
 
 const router = useRouter();
 
@@ -293,7 +310,69 @@ const get_reports = async () => {
 }
 const changePage = async (newPosition) => {
   position.value = newPosition;
+  selectedReports.value = []; // Limpiar selección al cambiar de página
   await get_reports(); // Vuelve a cargar los datos con el nuevo límite y posición
+};
+
+const isAllSelected = computed(() => {
+  return report_list.value.length > 0 && selectedReports.value.length === report_list.value.length;
+});
+
+const toggleSelectAll = (event) => {
+  if (event.target.checked) {
+    selectedReports.value = report_list.value.map(report => report.id);
+  } else {
+    selectedReports.value = [];
+  }
+};
+
+const limpiarSeleccion = () => {
+  selectedReports.value = [];
+};
+
+const descargarPDFsMasivo = async () => {
+  if (selectedReports.value.length === 0) {
+    return;
+  }
+  
+  try {
+    const response = await axios.post(
+      `${apiUrl}/reports/generate_multiple_reports_acesco`,
+      {
+        report_ids: selectedReports.value,
+      },
+      {
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        responseType: "blob",
+      }
+    );
+    
+    if (response.status === 200) {
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: "application/zip" }));
+      const link = document.createElement("a");
+      link.href = url;
+      const fecha = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+      link.setAttribute("download", `reportes_acesco_multiples_${fecha}.zip`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      selectedReports.value = [];
+    }
+  } catch (error) {
+    console.error('Error al generar PDFs masivos:', error);
+    modalErrorInstance.value.show();
+    errorMsg.value = error.response?.data?.message || "Error al generar los PDFs";
+    if (error.response?.status === 401) {
+      token_status.value = error.response.status;
+      errorMsg.value = "El token ha expirado.";
+    } else if (error.response?.status === 403) {
+      token_status.value = error.response.status;
+      errorMsg.value = error.response.data.detail;
+    }
+  }
 };
 const generar_pdf = async (report_id) => {
     try {
@@ -489,6 +568,48 @@ html {
 
 .btn-color-clean {
   background-color: gray;
+}
+
+.bulk-actions {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 15px;
+  margin: 20px 0;
+  padding: 15px;
+  background-color: #f0f8ff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.bulk-actions button {
+  padding: 10px 20px;
+  border-radius: 5px;
+  border: none;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.bulk-actions .btn-primary {
+  background-color: #007bff;
+  color: white;
+}
+
+.bulk-actions .btn-primary:hover {
+  background-color: #0056b3;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,123,255,0.3);
+}
+
+.bulk-actions .btn-secondary {
+  background-color: #6c757d;
+  color: white;
+}
+
+.bulk-actions .btn-secondary:hover {
+  background-color: #545b62;
+  transform: translateY(-2px);
 }
 
 .container-list {

@@ -1,5 +1,10 @@
 <template>
     <LayoutView>
+        <div class="container-header">
+            <button type="button" class="btn-volver" @click="volver">
+                ← Volver
+            </button>
+        </div>
         <form @submit.prevent="editReport">
             <h2>Formulario de Edición de Reporte</h2>
             <div class="form-group">
@@ -163,10 +168,15 @@
 
             <hr>
             
-            <button type="submit" class="btn btn-primary mt-3" :disabled="isLoading">
-                <span v-if="isLoading" class="spinner-border spinner-border-sm"></span>
-                {{ isLoading ? 'Actualizando...' : 'Actualizar' }}
-            </button>
+            <div class="button-group">
+                <button type="button" class="btn btn-secondary" @click="volver">
+                    ← Volver
+                </button>
+                <button type="submit" class="btn btn-primary" :disabled="isLoading">
+                    <span v-if="isLoading" class="spinner-border spinner-border-sm"></span>
+                    {{ isLoading ? 'Actualizando...' : 'Actualizar' }}
+                </button>
+            </div>
         </form>
 
         <!-- Modal de éxito -->
@@ -580,6 +590,9 @@ function logout() {
 function redirigir_dashboard() {
   router.push('/dashboard'); // Redirigir al dashboard
 };
+function volver() {
+  router.push('/reports'); // Redirigir a la lista de reportes
+};
 // Código que se ejecuta al montar el componente
 onMounted(() => {
     report_id.value = router.currentRoute.value.params.id;
@@ -600,6 +613,34 @@ html {
   height: 100%;
   font-size: 62.5%;
   font-family: "DM Sans", serif;
+}
+
+.container-header {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: 20px;
+}
+
+.btn-volver {
+  background-color: #6c757d;
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: background-color 0.3s;
+}
+
+.btn-volver:hover {
+  background-color: #545b62;
+}
+
+.button-group {
+  display: flex;
+  gap: 15px;
+  margin-top: 20px;
+  justify-content: flex-start;
 }
 
 form {
