@@ -1,13 +1,15 @@
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref } from 'vue';
 import axios from 'axios';
 import apiUrl from '../../config.js';
 
-export function useTokenChecker() {
-  const showWarningModal = ref(false);
-  const minutesRemaining = ref(0);
-  let intervalId = null;
+// Estado global compartido entre todas las instancias
+const showWarningModal = ref(false);
+const showFloatingTimer = ref(false);
+const minutesRemaining = ref(0);
+let intervalId = null;
+let isInitialized = false;
 
-  const checkToken = async () => {
+const checkToken = async () => {
     const token = localStorage.getItem('token');
     
     if (!token) {
@@ -30,9 +32,16 @@ export function useTokenChecker() {
         const data = response.data.data;
         minutesRemaining.value = data.minutes_remaining;
         
-        // Mostrar modal de advertencia si quedan 5 minutos o menos
-        if (data.is_about_to_expire && !showWarningModal.value) {
-          showWarningModal.value = true;
+        // Mostrar tanto el modal como el reloj flotante si quedan 5 minutos o menos
+        if (data.is_about_to_expire) {
+          showFloatingTimer.value = true;
+          if (!showWarningModal.value) {
+            showWarningModal.value = true;
+          }
+        } else {
+          // Si quedan más de 5 minutos, ocultar ambos
+          showFloatingTimer.value = false;
+          showWarningModal.value = false;
         }
         
         // Si el token expiró (0 o menos minutos)
@@ -50,43 +59,48 @@ export function useTokenChecker() {
         localStorage.clear();
         window.location.href = '/';
       }
-    }
-  };
+  }
+};
 
-  const startChecking = () => {
-    // Verificar inmediatamente
+const startChecking = () => {
+  // Solo iniciar si no se ha inicializado antes
+  if (isInitialized) {
+    return;
+  }
+  
+  isInitialized = true;
+  
+  // Verificar inmediatamente
+  checkToken();
+  
+  // Luego verificar cada 1 minuto (60000 ms)
+  intervalId = setInterval(() => {
     checkToken();
-    
-    // Luego verificar cada 1 minuto (60000 ms)
-    intervalId = setInterval(() => {
-      checkToken();
-    }, 60000);
-  };
+  }, 60000);
+};
 
-  const stopChecking = () => {
-    if (intervalId) {
-      clearInterval(intervalId);
-      intervalId = null;
-    }
-  };
+const stopChecking = () => {
+  if (intervalId) {
+    clearInterval(intervalId);
+    intervalId = null;
+    isInitialized = false;
+  }
+};
 
-  const closeWarning = () => {
-    showWarningModal.value = false;
-  };
+const closeWarning = () => {
+  showWarningModal.value = false;
+};
 
-  onMounted(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      startChecking();
-    }
-  });
-
-  onUnmounted(() => {
-    stopChecking();
-  });
+export function useTokenChecker() {
+  // Iniciar el checker solo si hay token y no está ya inicializado
+  const token = localStorage.getItem('token');
+  if (token && !isInitialized) {
+    startChecking();
+  }
 
   return {
     showWarningModal,
+    showFloatingTimer,
     minutesRemaining,
     closeWarning,
     checkToken

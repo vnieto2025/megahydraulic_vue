@@ -6,6 +6,12 @@
     </div>
     <Footer />
 
+    <!-- Reloj flotante animado - Se mantiene visible mientras queden 5 minutos o menos -->
+    <FloatingTimer 
+      :show="showFloatingTimer" 
+      :minutes="minutesRemaining"
+    />
+
     <!-- Modal de advertencia de token por expirar -->
     <div 
       class="modal fade" 
@@ -13,8 +19,8 @@
       tabindex="-1" 
       aria-labelledby="tokenWarningModalLabel" 
       aria-hidden="true" 
-      data-bs-backdrop="static"
-      data-bs-keyboard="false"
+      data-bs-backdrop="false"
+      data-bs-keyboard="true"
       ref="tokenWarningModal"
     >
       <div class="modal-dialog modal-dialog-centered">
@@ -47,11 +53,12 @@
 <script setup>
   import Navbar from './NavbarView.vue';
   import Footer from './FooterView.vue';
+  import FloatingTimer from '../../components/FloatingTimer.vue';
   import { useTokenChecker } from '../../composables/useTokenChecker';
   import { watch, ref, onMounted } from 'vue';
   import { Modal } from 'bootstrap';
 
-  const { showWarningModal, minutesRemaining, closeWarning } = useTokenChecker();
+  const { showWarningModal, showFloatingTimer, minutesRemaining, closeWarning } = useTokenChecker();
   const tokenWarningModal = ref(null);
   const modalInstance = ref(null);
 
