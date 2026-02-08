@@ -32,10 +32,23 @@
                 </div>
                 <div class="form-group">
                   <label for="filterSolped">Solped</label>
-                  <input v-model="filters.solped" type="text" id="filterSolped" class="form-control">
+                  <div class="chips-container">
+                    <div v-for="(chip, index) in filters.solped" :key="index" class="chip">
+                      {{ chip }}
+                      <span class="remove-chip" @click="removeSolped(index)">x</span>
+                    </div>
+                    <input 
+                      v-model="currentSolped" 
+                      @keydown.enter.prevent="addSolped" 
+                      type="text" 
+                      id="filterSolped" 
+                      class="form-control" 
+                      placeholder="Add Solped and press Enter"
+                    >
+                  </div>
                 </div>
                 <div class="form-group">
-                  <label for="filterBuyOrder">Orde de Compra</label>
+                  <label for="filterBuyOrder">Orden de Compra</label>
                   <input v-model="filters.buy_order" type="text" id="filterBuyOrder" class="form-control">
                 </div>
                 <div class="form-group">
@@ -236,12 +249,28 @@ import { Modal } from 'bootstrap';
 
 const filters = ref({
   om: '',
-  solped: '',
+  solped: [],
   buy_order: '',
   client_id: '',
   start_date: '',
   end_date: ''
 });
+
+const currentSolped = ref('');
+
+const addSolped = () => {
+    if (currentSolped.value.trim()) {
+        if (!Array.isArray(filters.value.solped)) {
+             filters.value.solped = [];
+        }
+        filters.value.solped.push(currentSolped.value.trim());
+        currentSolped.value = '';
+    }
+};
+
+const removeSolped = (index) => {
+    filters.value.solped.splice(index, 1);
+};
 
 const modalInstanceExito  = ref(null);
 const modalErrorInstance = ref(null);
@@ -425,7 +454,7 @@ const applyFilters = async () => {
 };
 const limpiarFiltros = async () => {
   filters.value.om = "";
-  filters.value.solped = "";
+  filters.value.solped = [];
   filters.value.buy_order = "";
   filters.value.client_id = "";
   filters.value.start_date = "";
@@ -769,5 +798,42 @@ html {
     width: 100%;
     justify-content: space-evenly;
   }
+}
+
+.chips-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  border: 1px solid #ced4da;
+  padding: 5px;
+  border-radius: 0.25rem;
+  background-color: #fff;
+}
+
+.chip {
+  background-color: #e0e0e0;
+  padding: 2px 8px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  font-size: 0.9em;
+}
+
+.remove-chip {
+  margin-left: 5px;
+  cursor: pointer;
+  font-weight: bold;
+  color: #888;
+}
+
+.remove-chip:hover {
+  color: #000;
+}
+
+.chips-container input {
+  border: none;
+  outline: none;
+  flex-grow: 1;
+  padding: 5px;
 }
 </style>
