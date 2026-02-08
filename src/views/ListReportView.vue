@@ -447,9 +447,7 @@ const generar_pdf = async (report_id) => {
     }
 };
 const applyFilters = async () => {
-  if (position.value === 0){
-    position.value = 1;
-  }
+  position.value = 1;
   await get_reports();
 };
 const limpiarFiltros = async () => {
