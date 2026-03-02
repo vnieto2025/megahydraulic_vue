@@ -7,163 +7,177 @@
         </div>
         <form @submit.prevent="editReport">
             <h2>Formulario de Edición de Reporte Acesco</h2>
-            <div class="form-group">
-                <label for="txt_fecha_actividad">Fecha Actividad:</label>
-                <input type="date" id="txt_fecha_actividad" v-model="fecha_actividad">
-            </div>
-            <div class="form-group">
-                <label for="select_cliente">Cliente:</label>
-                <select id="select_cliente" v-model="cliente_seleccionado" @change="onClienteChange" required>
-                    <option v-for="client in client_list" :key="client.id" :value="client.id">{{ client.name }}</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="select_linea">Línea:</label>
-                <select id="select_linea" v-model="linea_seleccionada" required>
-                    <option v-for="line in line_list" :key="line.id" :value="line.id">{{ line.name }}</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="select_persona">Persona que recibe:</label>
-                <select id="select_persona" v-model="persona_seleccionada" required>
-                    <option v-for="person in person_list" :key="person.id" :value="person.id">{{ person.name }}</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="txt_zona_trabajo">Zona de Trabajo:</label>
-                <input type="text" id="txt_zona_trabajo" v-model="zona_trabajo" required>
-            </div>
-            <div class="form-group">
-                <label for="txt_om">OM:</label>
-                <input type="text" id="txt_om" v-model="om">
+
+            <!-- Fila 1: Fecha, Cliente, Línea -->
+            <div class="row g-3">
+                <div class="col-md-4 form-group">
+                    <label for="txt_fecha_actividad">Fecha Actividad:</label>
+                    <input type="date" id="txt_fecha_actividad" v-model="fecha_actividad">
+                </div>
+                <div class="col-md-4 form-group">
+                    <label for="select_cliente">Cliente:</label>
+                    <select id="select_cliente" v-model="cliente_seleccionado" @change="onClienteChange" required>
+                        <option v-for="client in client_list" :key="client.id" :value="client.id">{{ client.name }}</option>
+                    </select>
+                </div>
+                <div class="col-md-4 form-group">
+                    <label for="select_linea">Línea:</label>
+                    <select id="select_linea" v-model="linea_seleccionada" required>
+                        <option v-for="line in line_list" :key="line.id" :value="line.id">{{ line.name }}</option>
+                    </select>
+                </div>
             </div>
 
-            <div class="form-group">
-                <label for="txt_solped">Solped:</label>
-                <input type="text" id="txt_solped" v-model="solped">
+            <!-- Fila 2: Persona, Zona de Trabajo, OM -->
+            <div class="row g-3 mt-1">
+                <div class="col-md-4 form-group">
+                    <label for="select_persona">Persona que recibe:</label>
+                    <select id="select_persona" v-model="persona_seleccionada" required>
+                        <option v-for="person in person_list" :key="person.id" :value="person.id">{{ person.name }}</option>
+                    </select>
+                </div>
+                <div class="col-md-4 form-group">
+                    <label for="txt_zona_trabajo">Zona de Trabajo:</label>
+                    <input type="text" id="txt_zona_trabajo" v-model="zona_trabajo" required>
+                </div>
+                <div class="col-md-4 form-group">
+                    <label for="txt_om">OM:</label>
+                    <input type="text" id="txt_om" v-model="om">
+                </div>
             </div>
 
-            <div class="form-group">
-                <label for="txt_orden">Orden de compra:</label>
-                <input type="text" id="txt_orden" v-model="orden_compra">
+            <!-- Fila 3: Solped, Orden de compra, Posición -->
+            <div class="row g-3 mt-1">
+                <div class="col-md-4 form-group">
+                    <label for="txt_solped">Solped:</label>
+                    <input type="text" id="txt_solped" v-model="solped">
+                </div>
+                <div class="col-md-4 form-group">
+                    <label for="txt_orden">Orden de compra:</label>
+                    <input type="text" id="txt_orden" v-model="orden_compra">
+                </div>
+                <div class="col-md-4 form-group">
+                    <label for="txt_posicion">Posición:</label>
+                    <input type="text" id="txt_posicion" v-model="posicion">
+                </div>
             </div>
 
-            <div class="form-group">
-                <label for="txt_posicion">Posición:</label>
-                <input type="text" id="txt_posicion" v-model="posicion">
+            <!-- Fila 4: Descripción del servicio, Información -->
+            <div class="row g-3 mt-1">
+                <div class="col-md-6 form-group">
+                    <label for="txt_descripcion_servicio">Descripción del servicio:</label>
+                    <textarea id="txt_descripcion_servicio" v-model="descripcion_servicio" rows="4"></textarea>
+                </div>
+                <div class="col-md-6 form-group">
+                    <label for="txt_informacion">Información:</label>
+                    <textarea id="txt_informacion" v-model="informacion" rows="4"></textarea>
+                </div>
             </div>
 
-            <div class="form-group">
-                <label for="txt_descripcion_servicio">Descripción del servicio:</label>
-                <textarea id="txt_descripcion_servicio" v-model="descripcion_servicio"></textarea>
+            <!-- Fila 5: Valor del servicio -->
+            <div class="row g-3 mt-1">
+                <div class="col-md-4 form-group">
+                    <label for="txt_valor_servicio">Valor del Servicio:</label>
+                    <input type="number" id="txt_valor_servicio" v-model="valor_servicio">
+                </div>
             </div>
 
-            <div class="form-group">
-                <label for="txt_informacion">Información:</label>
-                <textarea id="txt_informacion" v-model="informacion"></textarea>
-            </div>
-
-            <div class="form-group">
-                <label for="txt_valor_servicio">Valor del Servicio:</label>
-                <input type="number" id="txt_valor_servicio" v-model="valor_servicio">
-            </div>
-
-            <div class="form-group">
-                <label for="txt_conclusiones">Conclusiones:</label>
-                <textarea id="txt_conclusiones" v-model="conclusiones"></textarea>
-            </div>
-
-            <div class="form-group">
-                <label for="txt_recomendaciones">Recomendaciones:</label>
-                <textarea id="txt_recomendaciones" v-model="recomendaciones"></textarea>
+            <!-- Fila 6: Conclusiones, Recomendaciones -->
+            <div class="row g-3 mt-1">
+                <div class="col-md-6 form-group">
+                    <label for="txt_conclusiones">Conclusiones:</label>
+                    <textarea id="txt_conclusiones" v-model="conclusiones" rows="4"></textarea>
+                </div>
+                <div class="col-md-6 form-group">
+                    <label for="txt_recomendaciones">Recomendaciones:</label>
+                    <textarea id="txt_recomendaciones" v-model="recomendaciones" rows="4"></textarea>
+                </div>
             </div>
 
             <hr>
 
-            <div class="form-group mt-3">
-                <label for="registro_evidencia_antes">Registro Evidencia Antes:</label>
-                <div v-if="imagenes[0]">
-                    <!-- Miniatura de la imagen -->
-                    <img
-                        :src="imagenes[0].startsWith('data:') ? imagenes[0] : `${apiUrl}/${imagenes[0]}`"
-                        alt="Vista previa"
-                        class="img-thumbnail"
-                        style="max-width: 150px; max-height: 100px; cursor: pointer;"
-                        @click="enlargeImage(imagenes[0].startsWith('data:') ? imagenes[0] : `${apiUrl}/${imagenes[0]}`)"
-                    />
-                </div>
-                <input type="file" id="registro_evidencia_antes" @change="handleImageChange($event, 0)" accept="image/*" class="form-control">
-            </div>
-
-            <div class="form-group mt-3">
-                <label for="registro_evidencia_despues">Registro Evidencia Despues:</label>
-                <div v-if="imagenes[1]">
-                    <!-- Miniatura de la imagen -->
-                    <img
-                        :src="imagenes[1].startsWith('data:') ? imagenes[1] : `${apiUrl}/${imagenes[1]}`"
-                        alt="Vista previa"
-                        class="img-thumbnail"
-                        style="max-width: 150px; max-height: 100px; cursor: pointer;"
-                        @click="enlargeImage(imagenes[1].startsWith('data:') ? imagenes[1] : `${apiUrl}/${imagenes[1]}`)"
-                    />
-                </div>
-                <input type="file" id="registro_evidencia_despues" @change="handleImageChange($event, 1)" accept="image/*" class="form-control">
-            </div>
-
-            <hr>
-
-            <!-- Input dinámico para agregar anexos -->
-            <div class="form-group mt-3">
-                <h5>Anexos</h5>
-                <div v-for="(image, index) in anexos" :key="index" class="mb-2">
-                    <div v-if="image">
-                        <!-- Miniatura de la imagen -->
+            <!-- Fila 7: Evidencias fijas -->
+            <div class="row g-3">
+                <div class="col-md-6 form-group">
+                    <label for="registro_evidencia_antes">Registro Evidencia Antes:</label>
+                    <div v-if="imagenes[0]">
                         <img
-                            :src="image.startsWith('data:') ? image : `${apiUrl}/${image}`"
+                            :src="imagenes[0].startsWith('data:') ? imagenes[0] : `${apiUrl}/${imagenes[0]}`"
                             alt="Vista previa"
-                            class="img-thumbnail"
+                            class="img-thumbnail mb-1"
                             style="max-width: 150px; max-height: 100px; cursor: pointer;"
-                            @click="enlargeImage(image.startsWith('data:') ? image : `${apiUrl}/${image}`)"
+                            @click="enlargeImage(imagenes[0].startsWith('data:') ? imagenes[0] : `${apiUrl}/${imagenes[0]}`)"
                         />
                     </div>
-                    <input
-                        type="file"
-                        @change="handleImageChangeDinamic($event, index)"
-                        class="form-control"
-                        accept="image/*"
-                    />
-                    <button type="button" class="btn btn-danger mt-2" @click="removeImageInput(index)">
-                        Eliminar
-                    </button>
+                    <input type="file" id="registro_evidencia_antes" @change="handleImageChange($event, 0)" accept="image/*" class="form-control">
                 </div>
-                <button type="button" class="btn btn-primary mt-3" @click="addImageInput">
-                    Agregar imagen
+                <div class="col-md-6 form-group">
+                    <label for="registro_evidencia_despues">Registro Evidencia Después:</label>
+                    <div v-if="imagenes[1]">
+                        <img
+                            :src="imagenes[1].startsWith('data:') ? imagenes[1] : `${apiUrl}/${imagenes[1]}`"
+                            alt="Vista previa"
+                            class="img-thumbnail mb-1"
+                            style="max-width: 150px; max-height: 100px; cursor: pointer;"
+                            @click="enlargeImage(imagenes[1].startsWith('data:') ? imagenes[1] : `${apiUrl}/${imagenes[1]}`)"
+                        />
+                    </div>
+                    <input type="file" id="registro_evidencia_despues" @change="handleImageChange($event, 1)" accept="image/*" class="form-control">
+                </div>
+            </div>
+
+            <hr>
+
+            <!-- Anexos dinámicos -->
+            <div class="form-group mt-3">
+                <h5>Anexos</h5>
+                <div v-for="(image, index) in anexos" :key="index" class="row g-3 mb-2 align-items-end">
+                    <div class="col-md-4">
+                        <div v-if="image">
+                            <img
+                                :src="image.startsWith('data:') ? image : `${apiUrl}/${image}`"
+                                alt="Vista previa"
+                                class="img-thumbnail mb-1"
+                                style="max-width: 150px; max-height: 100px; cursor: pointer;"
+                                @click="enlargeImage(image.startsWith('data:') ? image : `${apiUrl}/${image}`)"
+                            />
+                        </div>
+                        <input
+                            type="file"
+                            @change="handleImageChangeDinamic($event, index)"
+                            class="form-control"
+                            accept="image/*"
+                        />
+                    </div>
+                    <div class="col-md-2">
+                        <button type="button" class="btn btn-danger w-100" @click="removeImageInput(index)">Eliminar</button>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-primary mt-2" @click="addImageInput">
+                    Agregar Anexo
                 </button>
             </div>
 
             <hr>
 
-            <div class="form-group">
-                <label for="txt_tecnico1">Técnico 1:</label>
-                <input type="text" id="txt_valor_servicio" v-model="tecnico1" required>
-            </div>
-
-            <div class="form-group">
-                <label for="txt_tecnico2">Técnico 2</label>
-                <input type="text" id="txt_valor_servicio" v-model="tecnico2">
+            <!-- Fila 8: Técnico 1, Técnico 2 -->
+            <div class="row g-3">
+                <div class="col-md-6 form-group">
+                    <label for="txt_tecnico1">Técnico 1:</label>
+                    <input type="text" id="txt_tecnico1" v-model="tecnico1" required>
+                </div>
+                <div class="col-md-6 form-group">
+                    <label for="txt_tecnico2">Técnico 2:</label>
+                    <input type="text" id="txt_tecnico2" v-model="tecnico2">
+                </div>
             </div>
 
             <hr>
-            
-            <div class="button-group">
-                <button type="button" class="btn btn-secondary" @click="volver">
-                    ← Volver
-                </button>
-                <button type="submit" class="btn btn-primary" :disabled="isLoading">
-                    <span v-if="isLoading" class="spinner-border spinner-border-sm"></span>
-                    {{ isLoading ? 'Actualizando...' : 'Actualizar' }}
-                </button>
-            </div>
+
+            <button type="submit" class="btn btn-primary mt-3" :disabled="isLoading">
+                <span v-if="isLoading" class="spinner-border spinner-border-sm"></span>
+                {{ isLoading ? 'Actualizando...' : 'Actualizar' }}
+            </button>
         </form>
 
         <!-- Modal de éxito -->

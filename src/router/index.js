@@ -15,6 +15,9 @@ import AddLinePersonView from '@/views/AddLinePersonView.vue';
 import CreateReportAcescoView from '@/views/CreateReportAcescoView.vue';
 import ListReportAcescoView from '@/views/ListReportAcescoView.vue';
 import EditReportAcescoView from '@/views/EditReportAcescoView.vue';
+import ControlServicioView from '@/views/ControlServicioView.vue';
+import ListServiceControlView from '@/views/ListServiceControlView.vue';
+import EditServiceControlView from '@/views/EditServiceControlView.vue';
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -35,6 +38,9 @@ const router = createRouter({
     {path: '/report/create-acesco', name: 'report/create-acesco/', component: CreateReportAcescoView},
     {path: '/reports-acesco', name: 'reports-acesco', component: ListReportAcescoView},
     {path: '/report-acesco/edit/:id', name: 'report-acesco/edit/', component: EditReportAcescoView},
+    {path: '/control-servicio', name: 'control-servicio/', component: ControlServicioView},
+    {path: '/ver-lista-control-servicio', name: 'ver-lista-control-servicio/', component: ListServiceControlView},
+    {path: '/service-control/edit/:id', name: 'service-control/edit/', component: EditServiceControlView},
   ]
 })
 

@@ -7,46 +7,55 @@
         </div>
         <form @submit.prevent="editReport">
             <h2>Formulario de Edición de Reporte</h2>
-            <div class="form-group">
-                <label for="txt_fecha_actividad">Fecha Actividad:</label>
-                <input type="date" id="txt_fecha_actividad" v-model="fecha_actividad">
-            </div>
-            <div class="form-group">
-                <label for="select_cliente">Cliente:</label>
-                <select id="select_cliente" v-model="cliente_seleccionado" @change="onClienteChange" required>
-                    <option v-for="client in client_list" :key="client.id" :value="client.id">{{ client.name }}</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="select_linea">Línea:</label>
-                <select id="select_linea" v-model="linea_seleccionada" required>
-                    <option v-for="line in line_list" :key="line.id" :value="line.id">{{ line.name }}</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="select_persona">Persona que recibe:</label>
-                <select id="select_persona" v-model="persona_seleccionada" required>
-                    <option v-for="person in person_list" :key="person.id" :value="person.id">{{ person.name }}</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="txt_om">OM:</label>
-                <input type="text" id="txt_om" v-model="om">
+
+            <!-- Fila 1: Fecha, Cliente, Línea -->
+            <div class="row g-3">
+                <div class="col-md-4 form-group">
+                    <label for="txt_fecha_actividad">Fecha Actividad:</label>
+                    <input type="date" id="txt_fecha_actividad" v-model="fecha_actividad">
+                </div>
+                <div class="col-md-4 form-group">
+                    <label for="select_cliente">Cliente:</label>
+                    <select id="select_cliente" v-model="cliente_seleccionado" @change="onClienteChange" required>
+                        <option v-for="client in client_list" :key="client.id" :value="client.id">{{ client.name }}</option>
+                    </select>
+                </div>
+                <div class="col-md-4 form-group">
+                    <label for="select_linea">Línea:</label>
+                    <select id="select_linea" v-model="linea_seleccionada" required>
+                        <option v-for="line in line_list" :key="line.id" :value="line.id">{{ line.name }}</option>
+                    </select>
+                </div>
             </div>
 
-            <div class="form-group">
-                <label for="txt_solped">Solped:</label>
-                <input type="text" id="txt_solped" v-model="solped">
+            <!-- Fila 2: Persona, OM, Solped -->
+            <div class="row g-3 mt-1">
+                <div class="col-md-4 form-group">
+                    <label for="select_persona">Persona que recibe:</label>
+                    <select id="select_persona" v-model="persona_seleccionada" required>
+                        <option v-for="person in person_list" :key="person.id" :value="person.id">{{ person.name }}</option>
+                    </select>
+                </div>
+                <div class="col-md-4 form-group">
+                    <label for="txt_om">OM:</label>
+                    <input type="text" id="txt_om" v-model="om">
+                </div>
+                <div class="col-md-4 form-group">
+                    <label for="txt_solped">Solped:</label>
+                    <input type="text" id="txt_solped" v-model="solped">
+                </div>
             </div>
 
-            <div class="form-group">
-                <label for="txt_orden">Orden de compra:</label>
-                <input type="text" id="txt_orden" v-model="orden_compra">
-            </div>
-
-            <div class="form-group">
-                <label for="txt_posicion">Posición:</label>
-                <input type="text" id="txt_posicion" v-model="posicion">
+            <!-- Fila 3: Orden de compra, Posición -->
+            <div class="row g-3 mt-1">
+                <div class="col-md-6 form-group">
+                    <label for="txt_orden">Orden de compra:</label>
+                    <input type="text" id="txt_orden" v-model="orden_compra">
+                </div>
+                <div class="col-md-6 form-group">
+                    <label for="txt_posicion">Posición:</label>
+                    <input type="text" id="txt_posicion" v-model="posicion">
+                </div>
             </div>
 
             <hr>
@@ -71,26 +80,30 @@
 
             <hr>
 
-            <div class="form-group">
-                <label for="txt_nombre_equipo">Nombre de equipo intervenido:</label>
-                <input type="text" id="txt_nombre_equipo" v-model="nombre_equipo">
+            <!-- Fila 4: Nombre equipo, Tipo equipo -->
+            <div class="row g-3">
+                <div class="col-md-6 form-group">
+                    <label for="txt_nombre_equipo">Nombre de equipo intervenido:</label>
+                    <input type="text" id="txt_nombre_equipo" v-model="nombre_equipo">
+                </div>
+                <div class="col-md-6 form-group">
+                    <label for="select_tipo_equipo">Tipo Equipo Intervenido:</label>
+                    <select id="select_tipo_equipo" v-model="tipo_equipo" @change="onChangeTasks" required>
+                        <option v-for="equip in equipos_list" :key="equip.id" :value="equip.id">{{ equip.name }}</option>
+                    </select>
+                </div>
             </div>
 
-            <div class="form-group">
-                <label for="txt_descripcion_servicio">Descripción del servicio:</label>
-                <textarea id="txt_descripcion_servicio" v-model="descripcion_servicio"></textarea>
-            </div>
-
-            <div class="form-group">
-                <label for="txt_informacion">Información:</label>
-                <textarea id="txt_informacion" v-model="informacion"></textarea>
-            </div>
-
-            <div class="form-group">
-                <label for="select_tipo_equipo">Tipo Equipo Intervenido:</label>
-                <select id="select_tipo_equipo" v-model="tipo_equipo" @change="onChangeTasks" required>
-                    <option v-for="equip in equipos_list" :key="equip.id" :value="equip.id">{{ equip.name }}</option>
-                </select>
+            <!-- Fila 5: Descripción, Información -->
+            <div class="row g-3 mt-1">
+                <div class="col-md-6 form-group">
+                    <label for="txt_descripcion_servicio">Descripción del servicio:</label>
+                    <textarea id="txt_descripcion_servicio" v-model="descripcion_servicio" rows="4"></textarea>
+                </div>
+                <div class="col-md-6 form-group">
+                    <label for="txt_informacion">Información:</label>
+                    <textarea id="txt_informacion" v-model="informacion" rows="4"></textarea>
+                </div>
             </div>
 
             <div class="form-group table-responsive">
@@ -132,51 +145,50 @@
 
             <hr>
 
-            <!-- Input dinámico para agregar imágenes -->
+            <!-- Imágenes dinámicas -->
             <div class="form-group mt-3">
                 <h4>Imágenes</h4>
-                <div v-for="(image, index) in imagenes" :key="index" class="mb-2">
-                    <div v-if="image.img">
-                        <!-- Miniatura de la imagen -->
-                        <img
-                            :src="image.img.startsWith('data:') ? image.img : `${apiUrl}/${image.img}`"
-                            alt="Vista previa"
-                            class="img-thumbnail"
-                            style="max-width: 150px; max-height: 100px; cursor: pointer;"
-                            @click="enlargeImage(image.img.startsWith('data:') ? image.img : `${apiUrl}/${image.img}`)"
+                <div v-for="(image, index) in imagenes" :key="index" class="row g-3 mb-3 align-items-end">
+                    <div class="col-md-5">
+                        <div v-if="image.img">
+                            <img
+                                :src="image.img.startsWith('data:') ? image.img : `${apiUrl}/${image.img}`"
+                                alt="Vista previa"
+                                class="img-thumbnail mb-1"
+                                style="max-width: 150px; max-height: 100px; cursor: pointer;"
+                                @click="enlargeImage(image.img.startsWith('data:') ? image.img : `${apiUrl}/${image.img}`)"
+                            />
+                        </div>
+                        <input
+                            type="file"
+                            @change="handleImageChange($event, index)"
+                            class="form-control"
+                            accept="image/*"
                         />
                     </div>
-                    <input
-                        type="file"
-                        @change="handleImageChange($event, index)"
-                        class="form-control"
-                        accept="image/*"
-                    />
-                    <textarea
-                        v-model="image.description"
-                        placeholder="Descripción de la imagen"
-                        class="form-control mt-2"
-                    ></textarea>
-                    <button type="button" class="btn btn-danger mt-2" @click="removeImageInput(index)">
-                        Eliminar
-                    </button>
+                    <div class="col-md-5">
+                        <textarea
+                            v-model="image.description"
+                            placeholder="Descripción de la imagen"
+                            class="form-control"
+                            rows="2"
+                        ></textarea>
+                    </div>
+                    <div class="col-md-2">
+                        <button type="button" class="btn btn-danger w-100" @click="removeImageInput(index)">Eliminar</button>
+                    </div>
                 </div>
-                <button type="button" class="btn btn-primary mt-3" @click="addImageInput">
+                <button type="button" class="btn btn-primary mt-2" @click="addImageInput">
                     Agregar imagen
                 </button>
             </div>
 
             <hr>
             
-            <div class="button-group">
-                <button type="button" class="btn btn-secondary" @click="volver">
-                    ← Volver
-                </button>
-                <button type="submit" class="btn btn-primary" :disabled="isLoading">
-                    <span v-if="isLoading" class="spinner-border spinner-border-sm"></span>
-                    {{ isLoading ? 'Actualizando...' : 'Actualizar' }}
-                </button>
-            </div>
+            <button type="submit" class="btn btn-primary mt-3" :disabled="isLoading">
+                <span v-if="isLoading" class="spinner-border spinner-border-sm"></span>
+                {{ isLoading ? 'Actualizando...' : 'Actualizar' }}
+            </button>
         </form>
 
         <!-- Modal de éxito -->
