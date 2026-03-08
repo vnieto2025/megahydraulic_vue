@@ -29,7 +29,7 @@
                 </div>
             </div>
 
-            <!-- Fila 2: Responsable -->
+            <!-- HES -->
             <div class="row g-3 mt-1">
                 <div class="col-md-4 form-group">
                     <label for="select_responsable">Responsable:</label>
@@ -37,6 +37,14 @@
                         <option value="" disabled>-- Seleccione --</option>
                         <option v-for="person in person_list" :key="person.id" :value="person.id">{{ person.name }}</option>
                     </select>
+                </div>
+                <div class="col-md-4 form-group">
+                    <label for="txt_gestor">Gestor:</label>
+                    <input type="text" id="txt_gestor" v-model="gestor">
+                </div>
+                <div class="col-md-4 form-group">
+                    <label for="txt_hes">HES:</label>
+                    <input type="text" id="txt_hes" v-model="hes">
                 </div>
             </div>
 
@@ -217,7 +225,9 @@ const component_list = ref([]);
 const fecha = ref('');
 const cliente = ref('');
 const linea = ref('');
+const hes = ref('');
 const responsable = ref('');
+const gestor = ref('');
 const descripcion = ref('');
 const informacion = ref('');
 const orden_servicio = ref('');
@@ -267,6 +277,7 @@ const cargarDatos = async () => {
         const d = resRecord.data.data;
         fecha.value = d.activity_date;
         cliente.value = d.client_id;
+        hes.value = d.hes || '';
         descripcion.value = d.description || '';
         informacion.value = d.information || '';
         orden_servicio.value = d.service_order || '';
@@ -293,9 +304,9 @@ const cargarDatos = async () => {
         ]);
         line_list.value = resLineas.data.data || [];
         person_list.value = resPersonas.data.data || [];
-
         linea.value = d.client_line_id;
         responsable.value = d.responsible_id;
+        gestor.value = d.gestor || '';
 
     } catch (error) {
         console.error('Error al cargar datos:', error);
@@ -354,7 +365,9 @@ const guardarCambios = async () => {
                 activity_date: fechaFormateada,
                 client_id: cliente.value,
                 client_line_id: linea.value,
+                hes: hes.value,
                 responsible_id: responsable.value,
+                gestor: gestor.value,
                 description: descripcion.value,
                 information: informacion.value,
                 service_order: orden_servicio.value,

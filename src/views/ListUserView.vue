@@ -175,7 +175,7 @@ import axios from 'axios';
 import { Modal } from 'bootstrap';
 import LayoutView from '../views/Layouts/LayoutView.vue';
 import gestion from "@/assets/icons/gestion.png";
-import desactivar from "@/assets/icons/desactivar.png";
+import desactivar from "@/assets/icons/trash.svg";
 import activar from "@/assets/icons/activar.png";
 
 const token = localStorage.getItem('token');

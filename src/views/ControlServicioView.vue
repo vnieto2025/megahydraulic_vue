@@ -26,7 +26,7 @@
                 </div>
             </div>
 
-            <!-- Fila 2: Responsable, Componente, Cantidad Componentes -->
+            <!-- HES -->
             <div class="row g-3 mt-1">
                 <div class="col-md-4 form-group">
                     <label for="select_responsable">Responsable:</label>
@@ -34,6 +34,14 @@
                         <option value="" disabled>-- Seleccione --</option>
                         <option v-for="person in person_list" :key="person.id" :value="person.id">{{ person.name }}</option>
                     </select>
+                </div>
+                <div class="col-md-4 form-group">
+                    <label for="txt_gestor">Gestor:</label>
+                    <input type="text" id="txt_gestor" v-model="gestor">
+                </div>
+                <div class="col-md-4 form-group">
+                    <label for="txt_hes">HES:</label>
+                    <input type="text" id="txt_hes" v-model="hes">
                 </div>
             </div>
 
@@ -153,7 +161,7 @@
                         {{ msg }}
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" @click="irAlListado">Cerrar</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" @click="limpiarFormulario">Cerrar</button>
                     </div>
                 </div>
             </div>
@@ -211,7 +219,9 @@ const fecha = ref('');
 const fecha_formateada = ref('');
 const cliente = ref('');
 const linea = ref('');
+const hes = ref('');
 const responsable = ref('');
+const gestor = ref('');
 const descripcion = ref('');
 const informacion = ref('');
 const orden_servicio = ref('');
@@ -259,7 +269,9 @@ const guardarServicio = async () => {
                 activity_date: fecha_formateada.value,
                 client_id: cliente.value,
                 client_line_id: linea.value,
+                hes: hes.value,
                 responsible_id: responsable.value,
+                gestor: gestor.value,
                 description: descripcion.value,
                 information: informacion.value,
                 service_order: orden_servicio.value,
@@ -359,8 +371,31 @@ function logout() {
 function redirigir_dashboard() {
     router.push('/dashboard');
 }
-function irAlListado() {
-    router.push('/ver-lista-control-servicio');
+function limpiarFormulario() {
+    fecha.value = '';
+    cliente.value = '';
+    linea.value = '';
+    hes.value = '';
+    responsable.value = '';
+    gestor.value = '';
+    descripcion.value = '';
+    informacion.value = '';
+    orden_servicio.value = '';
+    cotizacion.value = '';
+    componente.value = '';
+    cantidad_componentes.value = 0;
+    valor.value = 0;
+    solped.value = '';
+    oc.value = '';
+    posicion.value = '';
+    estado.value = '';
+    informe.value = '';
+    consecutivo.value = '';
+    factura.value = 0;
+    fecha_facturacion.value = '';
+    nota.value = '';
+    line_list.value = [];
+    person_list.value = [];
 }
 
 onMounted(() => {

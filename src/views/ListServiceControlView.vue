@@ -40,6 +40,44 @@
                   <input v-model="filters.end_date" type="date" id="filterEndDate" class="form-control">
                 </div>
                 <div class="form-group">
+                  <label for="filterSolped">Solped</label>
+                  <div class="chips-container">
+                    <div v-for="(chip, index) in filters.solped" :key="index" class="chip">
+                      {{ chip }}
+                      <span class="remove-chip" @click="removeSolped(index)">x</span>
+                    </div>
+                    <input
+                      v-model="currentSolped"
+                      @keydown.enter.prevent="addSolped"
+                      type="text"
+                      id="filterSolped"
+                      class="form-control"
+                      placeholder="Agregar solped y Enter"
+                    >
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label for="filterClient">Cliente</label>
+                  <select id="filterClient" v-model="filters.client_id" class="form-control" @change="onFilterClienteChange">
+                    <option value="">-- Todos --</option>
+                    <option v-for="c in client_list" :key="c.id" :value="c.id">{{ c.name }}</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="filterClientLine">Línea</label>
+                  <select id="filterClientLine" v-model="filters.client_line_id" class="form-control" @change="onFilterLineaChange" :disabled="!filters.client_id">
+                    <option value="">-- Todas --</option>
+                    <option v-for="l in filter_line_list" :key="l.id" :value="l.id">{{ l.name }}</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="filterResponsible">Responsable</label>
+                  <select id="filterResponsible" v-model="filters.responsible_id" class="form-control" :disabled="!filters.client_id">
+                    <option value="">-- Todos --</option>
+                    <option v-for="p in filter_person_list" :key="p.id" :value="p.id">{{ p.name }}</option>
+                  </select>
+                </div>
+                <div class="form-group">
                   <label>Estado</label>
                   <div class="custom-multiselect">
                     <div class="multiselect-trigger" @click="toggleDropdown">
@@ -70,41 +108,78 @@
       </div>
 
       <div class="container-list" v-if="record_list">
-        <table class="table table-hover">
+        <!-- Barra de acciones masivas -->
+        <div class="bulk-actions" v-if="selectedRecords.length > 0">
+          <span class="bulk-count">{{ selectedRecords.length }} registro(s) seleccionado(s)</span>
+          <button class="btn btn-primary" @click="modalConfirmConvertirMasivo" :disabled="isConvertingMasivo">
+            <span v-if="isConvertingMasivo" class="spinner-border spinner-border-sm"></span>
+            {{ isConvertingMasivo ? 'Procesando...' : '📄 Convertir seleccionados' }}
+          </button>
+          <button class="btn btn-secondary" @click="limpiarSeleccion">Limpiar selección</button>
+        </div>
+        <div class="table-wrapper">
+        <table class="table table-hover table-sm">
           <thead>
             <tr>
+              <th>
+                <input type="checkbox" @change="toggleSelectAll" :checked="isAllSelected" title="Seleccionar todos los convertibles">
+              </th>
               <th>#</th>
               <th>Fecha Actividad</th>
               <th>Cliente</th>
               <th>Línea</th>
               <th>Responsable</th>
+              <th>Descripción</th>
               <th>Orden Servicio</th>
               <th>Cotización</th>
               <th>Componente</th>
+              <th>Solped</th>
+              <th>OC</th>
+              <th>Posición</th>
+              <th>HES</th>
               <th>Estado</th>
               <th>Informe</th>
               <th>Consecutivo</th>
-              <th>OC</th>
-              <th>Posición</th>
               <th>Valor</th>
               <th>Acciones</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="record in record_list" :key="record.id" :class="{ 'row-facturado': record.service_status === 4 }">
+              <td data-label="Seleccionar">
+                <input
+                  v-if="!record.report_id"
+                  type="checkbox"
+                  :value="record.id"
+                  v-model="selectedRecords"
+                >
+                <span v-else title="Ya convertido" style="color:#5cb85c;font-size:1rem;">✓</span>
+              </td>
               <td data-label="#">{{ record.id }}</td>
               <td data-label="Fecha Actividad">{{ record.activity_date }}</td>
               <td data-label="Cliente">{{ record.client_name }}</td>
               <td data-label="Línea">{{ record.client_line }}</td>
               <td data-label="Responsable">{{ record.responsible }}</td>
+              <td data-label="Descripción">{{ record.description }}</td>
               <td data-label="Orden Servicio">{{ record.service_order }}</td>
               <td data-label="Cotización">{{ record.quotation }}</td>
               <td data-label="Componente">{{ record.component_name }}</td>
+              <td data-label="Solped">{{ record.solped }}</td>
+              <td data-label="oc">{{ record.oc }}</td>
+              <td data-label="Posición">{{ record.position }}</td>
+              <td data-label="Hes">{{ record.hes }}</td>
               <td data-label="Estado">{{ record.service_status_name }}</td>
               <td data-label="Informe">{{ record.report_status_name }}</td>
-              <td data-label="Consecutivo">{{ record.consecutive }}</td>
-              <td data-label="Consecutivo">{{ record.oc }}</td>
-              <td data-label="Consecutivo">{{ record.position }}</td>
+              <td data-label="Consecutivo">
+                <router-link
+                  v-if="record.consecutive"
+                  :to="`/${record.type_report === 1 ? 'report-acesco' : 'report'}/edit/${record.report_id}`"
+                  class="link-consecutivo"
+                >
+                  {{ record.consecutive }}
+                </router-link>
+                <span v-else>-</span>
+              </td>
               <td data-label="Valor">{{ record.valor_formateado  }}</td>
               <td data-label="Acciones" class="th-icons">
                 <router-link :to="`/service-control/edit/${record.id}`" class="icon-btn">
@@ -126,12 +201,13 @@
             </tr>
           </tbody>
         </table>
+        </div>
         <div class="pagination">
           <label for="records-per-page">Registros por página:</label>
           <select id="records-per-page" v-model="limit" @change="changePage(1)">
-            <option value="10">10</option>
-            <option value="25">25</option>
             <option value="50">50</option>
+            <option value="100">100</option>
+            <option value="150">150</option>
           </select>
           <button :disabled="position <= 1" @click="changePage(1)">Primera</button>
           <button :disabled="position <= 1" @click="changePage(position - 1)">Anterior</button>
@@ -139,6 +215,26 @@
           <button :disabled="position >= total_paginas" @click="changePage(position + 1)">Siguiente</button>
           <button :disabled="position >= total_paginas" @click="changePage(total_paginas)">Última</button>
         </div>
+      </div>
+
+      <!-- Modal confirmación conversión masiva -->
+      <div class="modal fade" id="convertirMasivoModal" tabindex="-1" aria-labelledby="convertirMasivoModalLabel" aria-hidden="true" data-bs-backdrop="static" ref="convertirMasivoModal">
+          <div class="modal-dialog modal-dialog-centered">
+              <div class="modal-content">
+              <div class="modal-header">
+                  <h5 class="modal-title" id="convertirMasivoModalLabel">Conversión masiva</h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+              </div>
+              <div class="modal-body">¿Desea convertir los {{ selectedRecords.length }} registro(s) seleccionado(s) en reportes? Esta acción no se puede deshacer.</div>
+              <div class="modal-footer">
+                  <button type="button" class="btn btn-primary" @click="convertirMasivo" :disabled="isConvertingMasivo">
+                    <span v-if="isConvertingMasivo" class="spinner-border spinner-border-sm"></span>
+                    {{ isConvertingMasivo ? 'Procesando...' : 'Sí, convertir todos' }}
+                  </button>
+                  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+              </div>
+              </div>
+          </div>
       </div>
 
       <!-- Modal confirmación conversión -->
@@ -177,17 +273,17 @@
           </div>
       </div>
 
-      <!-- Modal de confirmaciÃ³n -->
+      <!-- Modal de confirmación -->
       <div class="modal fade" id="preguntaModal" tabindex="-1" aria-labelledby="preguntaModalLabel" aria-hidden="true" data-bs-backdrop="static" ref="preguntaModal">
           <div class="modal-dialog modal-dialog-centered">
               <div class="modal-content">
               <div class="modal-header">
-                  <h5 class="modal-title" id="preguntaModalLabel">ConfirmaciÃ³n</h5>
+                  <h5 class="modal-title" id="preguntaModalLabel">Confirmación</h5>
                   <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
               </div>
-              <div class="modal-body">Â¿Seguro desea eliminar el registro #{{ record_id }}?</div>
+              <div class="modal-body">¿Seguro desea eliminar el registro #{{ record_id }}?</div>
               <div class="modal-footer">
-                  <button type="button" class="btn btn-danger" @click="cambiarEstado">SÃ­, eliminar</button>
+                  <button type="button" class="btn btn-danger" @click="cambiarEstado">Si­, eliminar</button>
                   <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
               </div>
               </div>
@@ -220,12 +316,12 @@
 
 <script setup>
 import apiUrl from "../../config.js";
-import { ref, onMounted, onBeforeUnmount } from 'vue';
+import { ref, onMounted, onBeforeUnmount, computed } from 'vue';
 import { useRouter } from "vue-router";
 import axios from 'axios';
 import LayoutView from '../views/Layouts/LayoutView.vue';
 import ojo from "@/assets/icons/ojo.png";
-import desactivar from "@/assets/icons/desactivar.png";
+import desactivar from "@/assets/icons/trash.svg";
 import { Modal } from 'bootstrap';
 
 const token = localStorage.getItem('token');
@@ -235,8 +331,28 @@ const router = useRouter();
 const filters = ref({
     start_date: '',
     end_date: '',
-    service_status: []
+    solped: [],
+    service_status: [],
+    client_id: '',
+    client_line_id: '',
+    responsible_id: ''
 });
+
+const currentSolped = ref('');
+
+const addSolped = () => {
+    if (currentSolped.value.trim()) {
+        if (!Array.isArray(filters.value.solped)) {
+            filters.value.solped = [];
+        }
+        filters.value.solped.push(currentSolped.value.trim());
+        currentSolped.value = '';
+    }
+};
+
+const removeSolped = (index) => {
+    filters.value.solped.splice(index, 1);
+};
 
 const dropdownOpen = ref(false);
 
@@ -251,11 +367,14 @@ const closeDropdown = (e) => {
 };
 
 const service_status_list = ref([]);
+const client_list = ref([]);
+const filter_line_list = ref([]);
+const filter_person_list = ref([]);
 const record_list = ref([]);
 const total_paginas = ref(0);
 const total_registros = ref(0);
 const total_valor_formateado = ref('');
-const limit = ref(10);
+const limit = ref(50);
 const position = ref(1);
 
 const msg = ref('');
@@ -264,11 +383,31 @@ const token_status = ref(0);
 const record_id = ref(0);
 const convert_record_id = ref(0);
 const isConverting = ref(false);
+const selectedRecords = ref([]);
+const isConvertingMasivo = ref(false);
+
+const isAllSelected = computed(() => {
+    const convertibles = record_list.value.filter(r => !r.report_id);
+    return convertibles.length > 0 && selectedRecords.value.length === convertibles.length;
+});
+
+const toggleSelectAll = (event) => {
+    if (event.target.checked) {
+        selectedRecords.value = record_list.value.filter(r => !r.report_id).map(r => r.id);
+    } else {
+        selectedRecords.value = [];
+    }
+};
+
+const limpiarSeleccion = () => {
+    selectedRecords.value = [];
+};
 
 const modalInstanceExito = ref(null);
 const modalErrorInstance = ref(null);
 const modalInstancePregunta = ref(null);
 const modalInstanceConvertir = ref(null);
+const modalInstanceConvertirMasivo = ref(null);
 
 const get_records = async () => {
     try {
@@ -287,6 +426,7 @@ const get_records = async () => {
             total_registros.value = response.data.data.total_registros;
             position.value = response.data.data.posicion_pag;
             total_valor_formateado.value = response.data.data.total_valor_formateado || '';
+            selectedRecords.value = [];
         }
     } catch (error) {
         console.error('Error al cargar los datos:', error);
@@ -304,14 +444,41 @@ const get_records = async () => {
 
 const cargarFiltros = async () => {
     try {
-        const response = await axios.post(
-            `${apiUrl}/params/get_service_statuses`, {},
-            { headers: { Accept: "application/json", Authorization: `Bearer ${token}` } }
-        );
-        service_status_list.value = response.data.data || [];
+        const [resStatuses, resClients] = await Promise.all([
+            axios.post(`${apiUrl}/params/get_service_statuses`, {},
+                { headers: { Accept: "application/json", Authorization: `Bearer ${token}` } }),
+            axios.post(`${apiUrl}/params/get_clients`, {},
+                { headers: { Accept: "application/json", Authorization: `Bearer ${token}` } }),
+        ]);
+        service_status_list.value = resStatuses.data.data || [];
+        client_list.value = resClients.data.data || [];
     } catch (error) {
-        console.error('Error al cargar estados:', error);
+        console.error('Error al cargar filtros:', error);
     }
+};
+
+const onFilterClienteChange = async () => {
+    filters.value.client_line_id = '';
+    filters.value.responsible_id = '';
+    filter_line_list.value = [];
+    filter_person_list.value = [];
+    if (!filters.value.client_id) return;
+    try {
+        const [resLineas, resPersonas] = await Promise.all([
+            axios.post(`${apiUrl}/params/get_lines_by_client`, { client: filters.value.client_id },
+                { headers: { Accept: "application/json", Authorization: `Bearer ${token}` } }),
+            axios.post(`${apiUrl}/params/get_users_by_client`, { client: filters.value.client_id },
+                { headers: { Accept: "application/json", Authorization: `Bearer ${token}` } }),
+        ]);
+        filter_line_list.value = resLineas.data.data || [];
+        filter_person_list.value = resPersonas.data.data || [];
+    } catch (error) {
+        console.error('Error al cargar líneas/responsables:', error);
+    }
+};
+
+const onFilterLineaChange = () => {
+    filters.value.responsible_id = '';
 };
 
 const changePage = async (newPosition) => {
@@ -327,7 +494,14 @@ const applyFilters = async () => {
 const limpiarFiltros = async () => {
     filters.value.start_date = '';
     filters.value.end_date = '';
+    filters.value.solped = [];
     filters.value.service_status = [];
+    filters.value.client_id = '';
+    filters.value.client_line_id = '';
+    filters.value.responsible_id = '';
+    filter_line_list.value = [];
+    filter_person_list.value = [];
+    currentSolped.value = '';
     position.value = 1;
     await get_records();
 };
@@ -340,6 +514,47 @@ const modalConfirm = (id) => {
 const modalConfirmConvertir = (id) => {
     convert_record_id.value = id;
     modalInstanceConvertir.value.show();
+};
+
+const modalConfirmConvertirMasivo = () => {
+    if (selectedRecords.value.length === 0) return;
+    modalInstanceConvertirMasivo.value.show();
+};
+
+const convertirMasivo = async () => {
+    try {
+        isConvertingMasivo.value = true;
+        const response = await axios.post(
+            `${apiUrl}/service_control/convert_multiple_to_report`,
+            { record_ids: selectedRecords.value },
+            { headers: { Accept: "application/json", Authorization: `Bearer ${token}` } }
+        );
+        modalInstanceConvertirMasivo.value.hide();
+        if (response.status === 200) {
+            const { converted, errors } = response.data.data;
+            let msgText = response.data.message;
+            if (errors && errors.length > 0) {
+                msgText += ` (${errors.length} con error: ${errors.map(e => `#${e.id}`).join(', ')})`;
+            }
+            msg.value = msgText;
+            modalInstanceExito.value.show();
+            await get_records();
+        }
+    } catch (error) {
+        console.error('Error al convertir masivamente:', error);
+        modalInstanceConvertirMasivo.value.hide();
+        errorMsg.value = error.response?.data?.message || 'Error inesperado al convertir';
+        if (error.response?.status === 401) {
+            token_status.value = 401;
+            errorMsg.value = error.response.data.detail;
+        } else if (error.response?.status === 403) {
+            token_status.value = 403;
+            errorMsg.value = error.response.data.detail;
+        }
+        modalErrorInstance.value.show();
+    } finally {
+        isConvertingMasivo.value = false;
+    }
 };
 
 const convertirServicio = async () => {
@@ -407,6 +622,7 @@ onMounted(() => {
     modalErrorInstance.value = new Modal(errorModal);
     modalInstancePregunta.value = new Modal(preguntaModal);
     modalInstanceConvertir.value = new Modal(convertirModal);
+    modalInstanceConvertirMasivo.value = new Modal(convertirMasivoModal);
     if (!token) { router.push('/'); return; }
     document.addEventListener('click', closeDropdown);
     cargarFiltros();
@@ -502,9 +718,16 @@ html {
   gap: 15px;
   margin: 20px 0;
   padding: 15px;
-  background-color: #f0f8ff;
+  background-color: #e8f4fd;
+  border: 1px solid #bee5fd;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.bulk-count {
+  font-weight: 600;
+  color: #2a475f;
+  font-size: 0.9rem;
 }
 
 .bulk-actions button {
@@ -546,9 +769,40 @@ html {
   margin-bottom: 20px;
 }
 
+.table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: 8px;
+  border: 1px solid #dee2e6;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+}
+
 .container-list table {
-  border-collapse: separate;
-  border-spacing: 0 8px; /* Espaciado entre filas */
+  border-collapse: collapse;
+  border-spacing: 0;
+  font-size: 0.78rem;
+  width: 100%;
+  min-width: 1400px;
+  margin-bottom: 0;
+}
+
+.container-list thead th {
+  background-color: #2a475f;
+  color: white;
+  white-space: nowrap;
+  padding: 8px 10px;
+  font-size: 0.78rem;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.container-list tbody td {
+  padding: 6px 10px;
+  vertical-align: middle;
+  white-space: nowrap;
+  font-size: 0.78rem;
+  border-bottom: 1px solid #f0f0f0;
 }
 
 .container-list table img {
@@ -576,6 +830,17 @@ html {
 
 .icon_deactivate{
   cursor: pointer;
+}
+
+.link-consecutivo {
+  color: #2a6496;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.link-consecutivo:hover {
+  text-decoration: underline;
+  color: #1a4a72;
 }
 
 .btn-convertir {
@@ -615,17 +880,12 @@ html {
 
 /* Table Hover Effects */
 .table-hover tbody tr {
-  transition: all 0.3s ease;
+  transition: background-color 0.2s ease;
   background-color: white;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
 }
 
-.table-hover tbody tr:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-  background-color: #f8f9fa;
-  z-index: 1;
-  position: relative;
+.table-hover tbody tr:hover td {
+  background-color: #eef3f8 !important;
 }
 
 .pagination {
@@ -738,10 +998,41 @@ html {
   border: 1px solid #ced4da;
   padding: 5px;
   border-radius: 0.25rem;
+  align-items: center;
+  min-height: 38px;
 }
 
-.bulk-actions {
-  display: none;
+.chip {
+  display: inline-flex;
+  align-items: center;
+  background-color: #2a475f;
+  color: white;
+  border-radius: 12px;
+  padding: 2px 10px;
+  font-size: 0.78rem;
+  gap: 6px;
+}
+
+.remove-chip {
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 0.9rem;
+  line-height: 1;
+  opacity: 0.8;
+}
+
+.remove-chip:hover {
+  opacity: 1;
+}
+
+.chips-container .form-control {
+  border: none;
+  outline: none;
+  box-shadow: none;
+  min-width: 180px;
+  flex: 1;
+  padding: 2px 4px;
+  font-size: 0.78rem;
 }
 
 .select-multiple {

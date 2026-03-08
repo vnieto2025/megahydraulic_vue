@@ -84,7 +84,8 @@
       </div>
 
       <div class="container-list" v-if="report_list">
-        <table class="table table-hover" v-if="report_list">
+        <div class="table-wrapper">
+        <table class="table table-hover table-sm">
           <thead>
               <tr>
                   <th>
@@ -130,6 +131,7 @@
               </tr>
           </tbody>
         </table>
+        </div>
         <div class="pagination">
           <label for="records-per-page">Registros por página:</label>
           <select 
@@ -137,9 +139,9 @@
             v-model="limit" 
             @change="changePage(1)"
           >
-            <option value="10">10</option>
-            <option value="25">25</option>
             <option value="50">50</option>
+            <option value="100">100</option>
+            <option value="150">150</option>
           </select>
           <button 
             :disabled="position <= 1" 
@@ -244,7 +246,7 @@ import axios from 'axios';
 import LayoutView from '../views/Layouts/LayoutView.vue';
 import ojo from "@/assets/icons/ojo.png";
 import pdf from "@/assets/icons/pdf.png";
-import desactivar from "@/assets/icons/desactivar.png";
+import desactivar from "@/assets/icons/trash.svg";
 import { Modal } from 'bootstrap';
 
 const filters = ref({
@@ -286,7 +288,7 @@ const client_list = ref([]);
 const total_paginas = ref(0);
 const total_registros = ref(0);
 
-const limit = ref(10);
+const limit = ref(50);
 const position = ref(1);
 const state = ref(true);
 
@@ -604,9 +606,16 @@ html {
   gap: 15px;
   margin: 20px 0;
   padding: 15px;
-  background-color: #f0f8ff;
+  background-color: #e8f4fd;
+  border: 1px solid #bee5fd;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.bulk-count {
+  font-weight: 600;
+  color: #2a475f;
+  font-size: 0.9rem;
 }
 
 .bulk-actions button {
@@ -625,7 +634,6 @@ html {
 
 .bulk-actions .btn-primary:hover {
   background-color: #0056b3;
-  transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0,123,255,0.3);
 }
 
@@ -636,7 +644,6 @@ html {
 
 .bulk-actions .btn-secondary:hover {
   background-color: #545b62;
-  transform: translateY(-2px);
 }
 
 .container-list {
@@ -648,9 +655,40 @@ html {
   margin-bottom: 20px;
 }
 
+.table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: 8px;
+  border: 1px solid #dee2e6;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+}
+
 .container-list table {
-  border-collapse: separate;
-  border-spacing: 0 8px; /* Espaciado entre filas */
+  border-collapse: collapse;
+  border-spacing: 0;
+  font-size: 0.78rem;
+  width: 100%;
+  min-width: 900px;
+  margin-bottom: 0;
+}
+
+.container-list thead th {
+  background-color: #2a475f;
+  color: white;
+  white-space: nowrap;
+  padding: 8px 10px;
+  font-size: 0.78rem;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.container-list tbody td {
+  padding: 6px 10px;
+  vertical-align: middle;
+  white-space: nowrap;
+  font-size: 0.78rem;
+  border-bottom: 1px solid #f0f0f0;
 }
 
 .container-list table img {
@@ -666,7 +704,7 @@ html {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 12px; /* Espaciado entre botones de acción */
+  gap: 12px;
 }
 
 .icon-btn {
@@ -676,23 +714,18 @@ html {
   cursor: pointer;
 }
 
-.icon_deactivate{
+.icon_deactivate {
   cursor: pointer;
 }
 
 /* Table Hover Effects */
 .table-hover tbody tr {
-  transition: all 0.3s ease;
+  transition: background-color 0.2s ease;
   background-color: white;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
 }
 
-.table-hover tbody tr:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-  background-color: #f8f9fa;
-  z-index: 1;
-  position: relative;
+.table-hover tbody tr:hover td {
+  background-color: #eef3f8 !important;
 }
 
 .pagination {
