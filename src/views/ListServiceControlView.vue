@@ -97,6 +97,26 @@
                     </div>
                   </div>
                 </div>
+                <div class="form-group">
+                  <label>Estado Reporte</label>
+                  <div class="custom-multiselect">
+                    <div class="multiselect-trigger" @click="toggleReportDropdown">
+                      <span v-if="filters.report_status.length === 0" class="placeholder">-- Seleccione estados --</span>
+                      <span v-else>{{ filters.report_status.length }} estado(s) seleccionado(s)</span>
+                      <span class="arrow">&#9660;</span>
+                    </div>
+                    <div class="multiselect-dropdown" v-show="reportDropdownOpen">
+                      <label
+                        v-for="rs in report_status_list"
+                        :key="rs.id"
+                        class="multiselect-option"
+                      >
+                        <input type="checkbox" :value="rs.id" v-model="filters.report_status">
+                        {{ rs.name }}
+                      </label>
+                    </div>
+                  </div>
+                </div>
                 <div class="filter-buttons">
                   <button class="btn-acordeon btn-color-apply" @click="applyFilters">Aplicar Filtros</button>
                   <button class="btn-acordeon btn-color-clean" @click="limpiarFiltros">Limpiar Filtros</button>
@@ -333,6 +353,7 @@ const filters = ref({
     end_date: '',
     solped: [],
     service_status: [],
+    report_status: [],
     client_id: '',
     client_line_id: '',
     responsible_id: ''
@@ -355,18 +376,25 @@ const removeSolped = (index) => {
 };
 
 const dropdownOpen = ref(false);
+const reportDropdownOpen = ref(false);
 
 const toggleDropdown = () => {
     dropdownOpen.value = !dropdownOpen.value;
 };
 
+const toggleReportDropdown = () => {
+    reportDropdownOpen.value = !reportDropdownOpen.value;
+};
+
 const closeDropdown = (e) => {
     if (!e.target.closest('.custom-multiselect')) {
         dropdownOpen.value = false;
+        reportDropdownOpen.value = false;
     }
 };
 
 const service_status_list = ref([]);
+const report_status_list = ref([]);
 const client_list = ref([]);
 const filter_line_list = ref([]);
 const filter_person_list = ref([]);
@@ -444,13 +472,16 @@ const get_records = async () => {
 
 const cargarFiltros = async () => {
     try {
-        const [resStatuses, resClients] = await Promise.all([
+        const [resStatuses, resReportStatuses, resClients] = await Promise.all([
             axios.post(`${apiUrl}/params/get_service_statuses`, {},
+                { headers: { Accept: "application/json", Authorization: `Bearer ${token}` } }),
+            axios.post(`${apiUrl}/params/get_report_statuses`, {},
                 { headers: { Accept: "application/json", Authorization: `Bearer ${token}` } }),
             axios.post(`${apiUrl}/params/get_clients`, {},
                 { headers: { Accept: "application/json", Authorization: `Bearer ${token}` } }),
         ]);
         service_status_list.value = resStatuses.data.data || [];
+        report_status_list.value = resReportStatuses.data.data || [];
         client_list.value = resClients.data.data || [];
     } catch (error) {
         console.error('Error al cargar filtros:', error);
@@ -496,6 +527,7 @@ const limpiarFiltros = async () => {
     filters.value.end_date = '';
     filters.value.solped = [];
     filters.value.service_status = [];
+    filters.value.report_status = [];
     filters.value.client_id = '';
     filters.value.client_line_id = '';
     filters.value.responsible_id = '';
