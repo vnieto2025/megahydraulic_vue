@@ -117,6 +117,10 @@
                     </div>
                   </div>
                 </div>
+                <div class="form-group">
+                  <label for="filterConsecutivo">Consecutivo</label>
+                  <input v-model="filters.consecutive" type="number" id="filterConsecutivo" class="form-control" placeholder="Ej: 1023" min="1">
+                </div>
                 <div class="filter-buttons">
                   <button class="btn-acordeon btn-color-apply" @click="applyFilters">Aplicar Filtros</button>
                   <button class="btn-acordeon btn-color-clean" @click="limpiarFiltros">Limpiar Filtros</button>
@@ -356,7 +360,8 @@ const filters = ref({
     report_status: [],
     client_id: '',
     client_line_id: '',
-    responsible_id: ''
+    responsible_id: '',
+    consecutive: ''
 });
 
 const currentSolped = ref('');
@@ -531,6 +536,7 @@ const limpiarFiltros = async () => {
     filters.value.client_id = '';
     filters.value.client_line_id = '';
     filters.value.responsible_id = '';
+    filters.value.consecutive = '';
     filter_line_list.value = [];
     filter_person_list.value = [];
     currentSolped.value = '';
