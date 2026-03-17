@@ -121,6 +121,54 @@
                   <label for="filterConsecutivo">Consecutivo</label>
                   <input v-model="filters.consecutive" type="number" id="filterConsecutivo" class="form-control" placeholder="Ej: 1023" min="1">
                 </div>
+                <div class="form-group">
+                  <label for="filterHes">HES</label>
+                  <input v-model="filters.hes" type="text" id="filterHes" class="form-control" placeholder="Buscar por HES">
+                </div>
+                <div class="form-group">
+                  <label for="filterOc">OC</label>
+                  <div class="custom-multiselect" id="filterOc">
+                    <div class="multiselect-trigger" @click="toggleOcDropdown">
+                      <span v-if="!filters.oc" class="placeholder">-- Todas --</span>
+                      <span v-else>{{ filters.oc }}</span>
+                      <span
+                        v-if="filters.oc"
+                        class="clear-oc"
+                        @click.stop="filters.oc = ''; ocSearchQuery = ''"
+                        title="Limpiar"
+                      >&#x2715;</span>
+                      <span v-else class="arrow">&#9660;</span>
+                    </div>
+                    <div class="multiselect-dropdown" v-show="ocDropdownOpen">
+                      <div class="oc-search-wrapper">
+                        <input
+                          v-model="ocSearchQuery"
+                          type="text"
+                          class="oc-search-input"
+                          placeholder="Buscar OC..."
+                          @click.stop
+                        >
+                      </div>
+                      <label class="multiselect-option" @click="selectOc('')">
+                        <em style="color:#999">-- Todas --</em>
+                      </label>
+                      <label
+                        v-for="oc in filteredOcList"
+                        :key="oc"
+                        class="multiselect-option"
+                        :class="{ 'oc-selected': filters.oc === oc }"
+                        @click="selectOc(oc)"
+                      >
+                        {{ oc }}
+                      </label>
+                      <div v-if="filteredOcList.length === 0" class="oc-no-results">Sin resultados</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label for="filterFactura">Factura</label>
+                  <input v-model="filters.factura" type="text" id="filterFactura" class="form-control" placeholder="Nro. de factura">
+                </div>
                 <div class="filter-buttons">
                   <button class="btn-acordeon btn-color-apply" @click="applyFilters">Aplicar Filtros</button>
                   <button class="btn-acordeon btn-color-clean" @click="limpiarFiltros">Limpiar Filtros</button>
@@ -164,6 +212,7 @@
               <th>Estado</th>
               <th>Informe</th>
               <th>Consecutivo</th>
+              <th>Factura</th>
               <th>Valor</th>
               <th>Acciones</th>
             </tr>
@@ -204,6 +253,7 @@
                 </router-link>
                 <span v-else>-</span>
               </td>
+              <td data-label="Factura">{{ record.invoice || '-' }}</td>
               <td data-label="Valor">{{ record.valor_formateado  }}</td>
               <td data-label="Acciones" class="th-icons">
                 <router-link :to="`/service-control/edit/${record.id}`" class="icon-btn">
@@ -340,7 +390,7 @@
 
 <script setup>
 import apiUrl from "../../config.js";
-import { ref, onMounted, onBeforeUnmount, computed } from 'vue';
+import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue';
 import { useRouter } from "vue-router";
 import axios from 'axios';
 import LayoutView from '../views/Layouts/LayoutView.vue';
@@ -361,7 +411,10 @@ const filters = ref({
     client_id: '',
     client_line_id: '',
     responsible_id: '',
-    consecutive: ''
+    consecutive: '',
+    hes: '',
+    oc: '',
+    factura: ''
 });
 
 const currentSolped = ref('');
@@ -382,6 +435,8 @@ const removeSolped = (index) => {
 
 const dropdownOpen = ref(false);
 const reportDropdownOpen = ref(false);
+const ocDropdownOpen = ref(false);
+const ocSearchQuery = ref('');
 
 const toggleDropdown = () => {
     dropdownOpen.value = !dropdownOpen.value;
@@ -391,10 +446,22 @@ const toggleReportDropdown = () => {
     reportDropdownOpen.value = !reportDropdownOpen.value;
 };
 
+const toggleOcDropdown = () => {
+    ocDropdownOpen.value = !ocDropdownOpen.value;
+    if (ocDropdownOpen.value) ocSearchQuery.value = '';
+};
+
+const selectOc = (oc) => {
+    filters.value.oc = oc;
+    ocDropdownOpen.value = false;
+    ocSearchQuery.value = '';
+};
+
 const closeDropdown = (e) => {
     if (!e.target.closest('.custom-multiselect')) {
         dropdownOpen.value = false;
         reportDropdownOpen.value = false;
+        ocDropdownOpen.value = false;
     }
 };
 
@@ -403,6 +470,7 @@ const report_status_list = ref([]);
 const client_list = ref([]);
 const filter_line_list = ref([]);
 const filter_person_list = ref([]);
+const oc_list = ref([]);
 const record_list = ref([]);
 const total_paginas = ref(0);
 const total_registros = ref(0);
@@ -422,6 +490,12 @@ const isConvertingMasivo = ref(false);
 const isAllSelected = computed(() => {
     const convertibles = record_list.value.filter(r => !r.report_id);
     return convertibles.length > 0 && selectedRecords.value.length === convertibles.length;
+});
+
+const filteredOcList = computed(() => {
+    if (!ocSearchQuery.value.trim()) return oc_list.value;
+    const q = ocSearchQuery.value.trim().toLowerCase();
+    return oc_list.value.filter(oc => oc.toLowerCase().includes(q));
 });
 
 const toggleSelectAll = (event) => {
@@ -493,6 +567,53 @@ const cargarFiltros = async () => {
     }
 };
 
+const loadOcList = async () => {
+    try {
+        const filtersPayload = {
+            start_date: filters.value.start_date,
+            end_date: filters.value.end_date,
+            solped: filters.value.solped,
+            service_status: filters.value.service_status,
+            report_status: filters.value.report_status,
+            client_id: filters.value.client_id,
+            client_line_id: filters.value.client_line_id,
+            responsible_id: filters.value.responsible_id,
+            consecutive: filters.value.consecutive,
+            hes: filters.value.hes,
+            factura: filters.value.factura,
+        };
+        const response = await axios.post(
+            `${apiUrl}/service_control/get_oc_list`,
+            { filters: filtersPayload },
+            { headers: { Accept: "application/json", Authorization: `Bearer ${token}` } }
+        );
+        if (response.status === 200) {
+            oc_list.value = response.data.data || [];
+        }
+    } catch (error) {
+        console.error('Error al cargar OC list:', error);
+    }
+};
+
+// Observar cambios en filtros (excepto oc) para recargar la lista de OC dinámicamente
+const filtersForOc = computed(() => ({
+    start_date: filters.value.start_date,
+    end_date: filters.value.end_date,
+    solped: [...filters.value.solped],
+    service_status: [...filters.value.service_status],
+    report_status: [...filters.value.report_status],
+    client_id: filters.value.client_id,
+    client_line_id: filters.value.client_line_id,
+    responsible_id: filters.value.responsible_id,
+    consecutive: filters.value.consecutive,
+    hes: filters.value.hes,
+    factura: filters.value.factura,
+}));
+
+watch(filtersForOc, () => {
+    loadOcList();
+}, { deep: true });
+
 const onFilterClienteChange = async () => {
     filters.value.client_line_id = '';
     filters.value.responsible_id = '';
@@ -537,6 +658,9 @@ const limpiarFiltros = async () => {
     filters.value.client_line_id = '';
     filters.value.responsible_id = '';
     filters.value.consecutive = '';
+    filters.value.hes = '';
+    filters.value.oc = '';
+    filters.value.factura = '';
     filter_line_list.value = [];
     filter_person_list.value = [];
     currentSolped.value = '';
@@ -664,6 +788,7 @@ onMounted(() => {
     if (!token) { router.push('/'); return; }
     document.addEventListener('click', closeDropdown);
     cargarFiltros();
+    loadOcList();
     get_records();
 });
 
@@ -1150,5 +1275,55 @@ html {
   align-items: flex-end;
   gap: 10px;
   padding-top: 24px;
+}
+
+.oc-search-wrapper {
+  padding: 6px 8px;
+  border-bottom: 1px solid #e9ecef;
+  position: sticky;
+  top: 0;
+  background: #fff;
+  z-index: 1;
+}
+
+.oc-search-input {
+  width: 100%;
+  padding: 5px 8px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 0.78rem;
+  outline: none;
+}
+
+.oc-search-input:focus {
+  border-color: #2a475f;
+  box-shadow: 0 0 0 2px rgba(42,71,95,0.15);
+}
+
+.oc-selected {
+  background-color: #e8f0f7;
+  font-weight: 600;
+}
+
+.oc-no-results {
+  padding: 10px 12px;
+  color: #999;
+  font-size: 0.78rem;
+  font-style: italic;
+}
+
+.clear-oc {
+  font-size: 0.75rem;
+  color: #888;
+  cursor: pointer;
+  margin-left: 4px;
+  padding: 0 2px;
+  border-radius: 50%;
+  line-height: 1;
+}
+
+.clear-oc:hover {
+  color: #333;
+  background-color: #e9ecef;
 }
 </style>
