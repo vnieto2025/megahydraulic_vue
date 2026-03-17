@@ -123,7 +123,44 @@
                 </div>
                 <div class="form-group">
                   <label for="filterHes">HES</label>
-                  <input v-model="filters.hes" type="text" id="filterHes" class="form-control" placeholder="Buscar por HES">
+                  <div class="custom-multiselect" id="filterHes">
+                    <div class="multiselect-trigger" @click="toggleHesDropdown">
+                      <span v-if="filters.hes.length === 0" class="placeholder">-- Todos --</span>
+                      <span v-else>{{ filters.hes.length }} HES seleccionado(s)</span>
+                      <span class="arrow">&#9660;</span>
+                    </div>
+                    <div class="multiselect-dropdown" v-show="hesDropdownOpen">
+                      <div class="oc-search-wrapper">
+                        <input
+                          v-model="hesSearchQuery"
+                          type="text"
+                          class="oc-search-input"
+                          placeholder="Buscar HES..."
+                          @click.stop
+                        >
+                      </div>
+                      <label class="multiselect-option hes-select-all" @click.stop>
+                        <input
+                          type="checkbox"
+                          :checked="isAllHesSelected"
+                          :indeterminate.prop="isSomeHesSelected"
+                          @change="toggleSelectAllHes"
+                        >
+                        <strong>{{ isAllHesSelected ? 'Deseleccionar todo' : 'Seleccionar todo' }}</strong>
+                      </label>
+                      <div class="hes-select-all-divider"></div>
+                      <label
+                        v-for="hes in filteredHesList"
+                        :key="hes"
+                        class="multiselect-option"
+                        :class="{ 'oc-selected': filters.hes.includes(hes) }"
+                      >
+                        <input type="checkbox" :value="hes" v-model="filters.hes">
+                        {{ hes }}
+                      </label>
+                      <div v-if="filteredHesList.length === 0" class="oc-no-results">Sin resultados</div>
+                    </div>
+                  </div>
                 </div>
                 <div class="form-group">
                   <label for="filterOc">OC</label>
@@ -412,7 +449,7 @@ const filters = ref({
     client_line_id: '',
     responsible_id: '',
     consecutive: '',
-    hes: '',
+    hes: [],
     oc: '',
     factura: ''
 });
@@ -437,6 +474,8 @@ const dropdownOpen = ref(false);
 const reportDropdownOpen = ref(false);
 const ocDropdownOpen = ref(false);
 const ocSearchQuery = ref('');
+const hesDropdownOpen = ref(false);
+const hesSearchQuery = ref('');
 
 const toggleDropdown = () => {
     dropdownOpen.value = !dropdownOpen.value;
@@ -457,11 +496,17 @@ const selectOc = (oc) => {
     ocSearchQuery.value = '';
 };
 
+const toggleHesDropdown = () => {
+    hesDropdownOpen.value = !hesDropdownOpen.value;
+    if (hesDropdownOpen.value) hesSearchQuery.value = '';
+};
+
 const closeDropdown = (e) => {
     if (!e.target.closest('.custom-multiselect')) {
         dropdownOpen.value = false;
         reportDropdownOpen.value = false;
         ocDropdownOpen.value = false;
+        hesDropdownOpen.value = false;
     }
 };
 
@@ -497,6 +542,32 @@ const filteredOcList = computed(() => {
     const q = ocSearchQuery.value.trim().toLowerCase();
     return oc_list.value.filter(oc => oc.toLowerCase().includes(q));
 });
+
+const hes_list = ref([]);
+
+const filteredHesList = computed(() => {
+    if (!hesSearchQuery.value.trim()) return hes_list.value;
+    const q = hesSearchQuery.value.trim().toLowerCase();
+    return hes_list.value.filter(h => h.toLowerCase().includes(q));
+});
+
+const isAllHesSelected = computed(() =>
+    filteredHesList.value.length > 0 &&
+    filteredHesList.value.every(h => filters.value.hes.includes(h))
+);
+
+const isSomeHesSelected = computed(() =>
+    filteredHesList.value.some(h => filters.value.hes.includes(h)) && !isAllHesSelected.value
+);
+
+const toggleSelectAllHes = () => {
+    if (isAllHesSelected.value) {
+        filters.value.hes = filters.value.hes.filter(h => !filteredHesList.value.includes(h));
+    } else {
+        const toAdd = filteredHesList.value.filter(h => !filters.value.hes.includes(h));
+        filters.value.hes = [...filters.value.hes, ...toAdd];
+    }
+};
 
 const toggleSelectAll = (event) => {
     if (event.target.checked) {
@@ -595,6 +666,34 @@ const loadOcList = async () => {
     }
 };
 
+const loadHesList = async () => {
+    try {
+        const filtersPayload = {
+            start_date: filters.value.start_date,
+            end_date: filters.value.end_date,
+            solped: filters.value.solped,
+            service_status: filters.value.service_status,
+            report_status: filters.value.report_status,
+            client_id: filters.value.client_id,
+            client_line_id: filters.value.client_line_id,
+            responsible_id: filters.value.responsible_id,
+            consecutive: filters.value.consecutive,
+            oc: filters.value.oc,
+            factura: filters.value.factura,
+        };
+        const response = await axios.post(
+            `${apiUrl}/service_control/get_hes_list`,
+            { filters: filtersPayload },
+            { headers: { Accept: "application/json", Authorization: `Bearer ${token}` } }
+        );
+        if (response.status === 200) {
+            hes_list.value = response.data.data || [];
+        }
+    } catch (error) {
+        console.error('Error al cargar HES list:', error);
+    }
+};
+
 // Observar cambios en filtros (excepto oc) para recargar la lista de OC dinámicamente
 const filtersForOc = computed(() => ({
     start_date: filters.value.start_date,
@@ -606,12 +705,31 @@ const filtersForOc = computed(() => ({
     client_line_id: filters.value.client_line_id,
     responsible_id: filters.value.responsible_id,
     consecutive: filters.value.consecutive,
-    hes: filters.value.hes,
+    hes: [...filters.value.hes],
     factura: filters.value.factura,
 }));
 
 watch(filtersForOc, () => {
     loadOcList();
+}, { deep: true });
+
+// Observar cambios en filtros (excepto hes) para recargar la lista de HES dinámicamente
+const filtersForHes = computed(() => ({
+    start_date: filters.value.start_date,
+    end_date: filters.value.end_date,
+    solped: [...filters.value.solped],
+    service_status: [...filters.value.service_status],
+    report_status: [...filters.value.report_status],
+    client_id: filters.value.client_id,
+    client_line_id: filters.value.client_line_id,
+    responsible_id: filters.value.responsible_id,
+    consecutive: filters.value.consecutive,
+    oc: filters.value.oc,
+    factura: filters.value.factura,
+}));
+
+watch(filtersForHes, () => {
+    loadHesList();
 }, { deep: true });
 
 const onFilterClienteChange = async () => {
@@ -658,7 +776,7 @@ const limpiarFiltros = async () => {
     filters.value.client_line_id = '';
     filters.value.responsible_id = '';
     filters.value.consecutive = '';
-    filters.value.hes = '';
+    filters.value.hes = [];
     filters.value.oc = '';
     filters.value.factura = '';
     filter_line_list.value = [];
@@ -789,6 +907,7 @@ onMounted(() => {
     document.addEventListener('click', closeDropdown);
     cargarFiltros();
     loadOcList();
+    loadHesList();
     get_records();
 });
 
@@ -1268,6 +1387,17 @@ html {
   cursor: pointer;
   margin: 0;
   flex-shrink: 0;
+}
+
+.hes-select-all {
+  border-bottom: none;
+  background-color: #f8f9fa;
+}
+
+.hes-select-all-divider {
+  height: 1px;
+  background-color: #dee2e6;
+  margin: 0 8px;
 }
 
 .filter-buttons {
