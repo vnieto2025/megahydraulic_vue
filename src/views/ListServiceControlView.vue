@@ -206,6 +206,14 @@
                   <label for="filterFactura">Factura</label>
                   <input v-model="filters.factura" type="text" id="filterFactura" class="form-control" placeholder="Nro. de factura">
                 </div>
+                <div class="form-group">
+                  <label for="filterInvoiceDateStart">Fecha facturación desde</label>
+                  <input v-model="filters.invoice_date_start" type="date" id="filterInvoiceDateStart" class="form-control">
+                </div>
+                <div class="form-group">
+                  <label for="filterInvoiceDateEnd">Fecha facturación hasta</label>
+                  <input v-model="filters.invoice_date_end" type="date" id="filterInvoiceDateEnd" class="form-control">
+                </div>
                 <div class="filter-buttons">
                   <button class="btn-acordeon btn-color-apply" @click="applyFilters">Aplicar Filtros</button>
                   <button class="btn-acordeon btn-color-clean" @click="limpiarFiltros">Limpiar Filtros</button>
@@ -250,6 +258,7 @@
               <th>Informe</th>
               <th>Consecutivo</th>
               <th>Factura</th>
+              <th>Fecha Facturación</th>
               <th>Valor</th>
               <th>Acciones</th>
             </tr>
@@ -291,6 +300,7 @@
                 <span v-else>-</span>
               </td>
               <td data-label="Factura">{{ record.invoice || '-' }}</td>
+              <td data-label="Fecha Facturación">{{ record.invoice_date }}</td>
               <td data-label="Valor">{{ record.valor_formateado  }}</td>
               <td data-label="Acciones" class="th-icons">
                 <router-link :to="`/service-control/edit/${record.id}`" class="icon-btn">
@@ -451,7 +461,9 @@ const filters = ref({
     consecutive: '',
     hes: [],
     oc: '',
-    factura: ''
+    factura: '',
+    invoice_date_start: '',
+    invoice_date_end: ''
 });
 
 const currentSolped = ref('');
@@ -652,6 +664,8 @@ const loadOcList = async () => {
             consecutive: filters.value.consecutive,
             hes: filters.value.hes,
             factura: filters.value.factura,
+            invoice_date_start: filters.value.invoice_date_start,
+            invoice_date_end: filters.value.invoice_date_end,
         };
         const response = await axios.post(
             `${apiUrl}/service_control/get_oc_list`,
@@ -680,6 +694,8 @@ const loadHesList = async () => {
             consecutive: filters.value.consecutive,
             oc: filters.value.oc,
             factura: filters.value.factura,
+            invoice_date_start: filters.value.invoice_date_start,
+            invoice_date_end: filters.value.invoice_date_end,
         };
         const response = await axios.post(
             `${apiUrl}/service_control/get_hes_list`,
@@ -707,6 +723,8 @@ const filtersForOc = computed(() => ({
     consecutive: filters.value.consecutive,
     hes: [...filters.value.hes],
     factura: filters.value.factura,
+    invoice_date_start: filters.value.invoice_date_start,
+    invoice_date_end: filters.value.invoice_date_end,
 }));
 
 watch(filtersForOc, () => {
@@ -726,6 +744,8 @@ const filtersForHes = computed(() => ({
     consecutive: filters.value.consecutive,
     oc: filters.value.oc,
     factura: filters.value.factura,
+    invoice_date_start: filters.value.invoice_date_start,
+    invoice_date_end: filters.value.invoice_date_end,
 }));
 
 watch(filtersForHes, () => {
@@ -779,6 +799,8 @@ const limpiarFiltros = async () => {
     filters.value.hes = [];
     filters.value.oc = '';
     filters.value.factura = '';
+    filters.value.invoice_date_start = '';
+    filters.value.invoice_date_end = '';
     filter_line_list.value = [];
     filter_person_list.value = [];
     currentSolped.value = '';
