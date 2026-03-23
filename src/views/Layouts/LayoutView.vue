@@ -1,7 +1,7 @@
 <template>
   <div id="main-data">
     <Navbar />
-    <div class="main-content container mt-4">
+    <div class="main-content container-fluid mt-4">
       <slot></slot> <!-- Aquí se renderizará el contenido dinámico de cada página -->
     </div>
     <Footer />

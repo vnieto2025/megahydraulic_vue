@@ -41,19 +41,50 @@
                 </div>
                 <div class="form-group">
                   <label for="filterSolped">Solped</label>
-                  <div class="chips-container">
-                    <div v-for="(chip, index) in filters.solped" :key="index" class="chip">
-                      {{ chip }}
-                      <span class="remove-chip" @click="removeSolped(index)">x</span>
+                  <div class="custom-multiselect" id="filterSolped">
+                    <div class="multiselect-trigger" @click="toggleSolpedDropdown">
+                      <span v-if="filters.solped.length === 0" class="placeholder">-- Todas --</span>
+                      <span v-else>{{ filters.solped.length }} Solped seleccionada(s)</span>
+                      <span
+                        v-if="filters.solped.length > 0"
+                        class="clear-oc"
+                        @click.stop="filters.solped = []; solpedSearchQuery = ''"
+                        title="Limpiar"
+                      >&#x2715;</span>
+                      <span v-else class="arrow">&#9660;</span>
                     </div>
-                    <input
-                      v-model="currentSolped"
-                      @keydown.enter.prevent="addSolped"
-                      type="text"
-                      id="filterSolped"
-                      class="form-control"
-                      placeholder="Agregar solped y Enter"
-                    >
+                    <div class="multiselect-dropdown" v-show="solpedDropdownOpen">
+                      <div class="oc-search-wrapper">
+                        <input
+                          v-model="solpedSearchQuery"
+                          type="text"
+                          class="oc-search-input"
+                          placeholder="Buscar Solped..."
+                          @click.stop
+                        >
+                      </div>
+                      <label class="multiselect-option hes-select-all" @click.stop>
+                        <input
+                          type="checkbox"
+                          :checked="isAllSolpedSelected"
+                          :indeterminate.prop="isSomeSolpedSelected"
+                          @change="toggleSelectAllSolped"
+                        >
+                        <strong>{{ isAllSolpedSelected ? 'Deseleccionar todo' : 'Seleccionar todo' }}</strong>
+                      </label>
+                      <div class="hes-select-all-divider"></div>
+                      <label
+                        v-for="sp in filteredSolpedList"
+                        :key="sp"
+                        class="multiselect-option"
+                        :class="{ 'oc-selected': filters.solped.includes(sp) }"
+                      >
+                        <input type="checkbox" :value="sp" v-model="filters.solped">
+                        <em v-if="sp === '__EMPTY__'" style="color:#999">Vacíos</em>
+                        <span v-else>{{ sp }}</span>
+                      </label>
+                      <div v-if="filteredSolpedList.length === 0" class="oc-no-results">Sin resultados</div>
+                    </div>
                   </div>
                 </div>
                 <div class="form-group">
@@ -166,12 +197,12 @@
                   <label for="filterOc">OC</label>
                   <div class="custom-multiselect" id="filterOc">
                     <div class="multiselect-trigger" @click="toggleOcDropdown">
-                      <span v-if="!filters.oc" class="placeholder">-- Todas --</span>
-                      <span v-else>{{ filters.oc }}</span>
+                      <span v-if="filters.oc.length === 0" class="placeholder">-- Todas --</span>
+                      <span v-else>{{ filters.oc.length }} OC seleccionada(s)</span>
                       <span
-                        v-if="filters.oc"
+                        v-if="filters.oc.length > 0"
                         class="clear-oc"
-                        @click.stop="filters.oc = ''; ocSearchQuery = ''"
+                        @click.stop="filters.oc = []; ocSearchQuery = ''"
                         title="Limpiar"
                       >&#x2715;</span>
                       <span v-else class="arrow">&#9660;</span>
@@ -186,17 +217,25 @@
                           @click.stop
                         >
                       </div>
-                      <label class="multiselect-option" @click="selectOc('')">
-                        <em style="color:#999">-- Todas --</em>
+                      <label class="multiselect-option hes-select-all" @click.stop>
+                        <input
+                          type="checkbox"
+                          :checked="isAllOcSelected"
+                          :indeterminate.prop="isSomeOcSelected"
+                          @change="toggleSelectAllOc"
+                        >
+                        <strong>{{ isAllOcSelected ? 'Deseleccionar todo' : 'Seleccionar todo' }}</strong>
                       </label>
+                      <div class="hes-select-all-divider"></div>
                       <label
                         v-for="oc in filteredOcList"
                         :key="oc"
                         class="multiselect-option"
-                        :class="{ 'oc-selected': filters.oc === oc }"
-                        @click="selectOc(oc)"
+                        :class="{ 'oc-selected': filters.oc.includes(oc) }"
                       >
-                        {{ oc }}
+                        <input type="checkbox" :value="oc" v-model="filters.oc">
+                        <em v-if="oc === '__EMPTY__'" style="color:#999">Vacíos</em>
+                        <span v-else>{{ oc }}</span>
                       </label>
                       <div v-if="filteredOcList.length === 0" class="oc-no-results">Sin resultados</div>
                     </div>
@@ -460,27 +499,14 @@ const filters = ref({
     responsible_id: '',
     consecutive: '',
     hes: [],
-    oc: '',
+    oc: [],
     factura: '',
     invoice_date_start: '',
     invoice_date_end: ''
 });
 
-const currentSolped = ref('');
-
-const addSolped = () => {
-    if (currentSolped.value.trim()) {
-        if (!Array.isArray(filters.value.solped)) {
-            filters.value.solped = [];
-        }
-        filters.value.solped.push(currentSolped.value.trim());
-        currentSolped.value = '';
-    }
-};
-
-const removeSolped = (index) => {
-    filters.value.solped.splice(index, 1);
-};
+const solpedDropdownOpen = ref(false);
+const solpedSearchQuery = ref('');
 
 const dropdownOpen = ref(false);
 const reportDropdownOpen = ref(false);
@@ -502,15 +528,14 @@ const toggleOcDropdown = () => {
     if (ocDropdownOpen.value) ocSearchQuery.value = '';
 };
 
-const selectOc = (oc) => {
-    filters.value.oc = oc;
-    ocDropdownOpen.value = false;
-    ocSearchQuery.value = '';
-};
-
 const toggleHesDropdown = () => {
     hesDropdownOpen.value = !hesDropdownOpen.value;
     if (hesDropdownOpen.value) hesSearchQuery.value = '';
+};
+
+const toggleSolpedDropdown = () => {
+    solpedDropdownOpen.value = !solpedDropdownOpen.value;
+    if (solpedDropdownOpen.value) solpedSearchQuery.value = '';
 };
 
 const closeDropdown = (e) => {
@@ -519,6 +544,7 @@ const closeDropdown = (e) => {
         reportDropdownOpen.value = false;
         ocDropdownOpen.value = false;
         hesDropdownOpen.value = false;
+        solpedDropdownOpen.value = false;
     }
 };
 
@@ -528,6 +554,7 @@ const client_list = ref([]);
 const filter_line_list = ref([]);
 const filter_person_list = ref([]);
 const oc_list = ref([]);
+const solped_list = ref([]);
 const record_list = ref([]);
 const total_paginas = ref(0);
 const total_registros = ref(0);
@@ -552,8 +579,56 @@ const isAllSelected = computed(() => {
 const filteredOcList = computed(() => {
     if (!ocSearchQuery.value.trim()) return oc_list.value;
     const q = ocSearchQuery.value.trim().toLowerCase();
-    return oc_list.value.filter(oc => oc.toLowerCase().includes(q));
+    return oc_list.value.filter(oc => {
+        if (oc === '__EMPTY__') return 'vac\u00edos'.includes(q);
+        return oc.toLowerCase().includes(q);
+    });
 });
+
+const isAllOcSelected = computed(() =>
+    filteredOcList.value.length > 0 &&
+    filteredOcList.value.every(oc => filters.value.oc.includes(oc))
+);
+
+const isSomeOcSelected = computed(() =>
+    filteredOcList.value.some(oc => filters.value.oc.includes(oc)) && !isAllOcSelected.value
+);
+
+const toggleSelectAllOc = () => {
+    if (isAllOcSelected.value) {
+        filters.value.oc = filters.value.oc.filter(o => !filteredOcList.value.includes(o));
+    } else {
+        const toAdd = filteredOcList.value.filter(o => !filters.value.oc.includes(o));
+        filters.value.oc = [...filters.value.oc, ...toAdd];
+    }
+};
+
+const filteredSolpedList = computed(() => {
+    if (!solpedSearchQuery.value.trim()) return solped_list.value;
+    const q = solpedSearchQuery.value.trim().toLowerCase();
+    return solped_list.value.filter(s => {
+        if (s === '__EMPTY__') return 'vac\u00edos'.includes(q);
+        return s.toLowerCase().includes(q);
+    });
+});
+
+const isAllSolpedSelected = computed(() =>
+    filteredSolpedList.value.length > 0 &&
+    filteredSolpedList.value.every(s => filters.value.solped.includes(s))
+);
+
+const isSomeSolpedSelected = computed(() =>
+    filteredSolpedList.value.some(s => filters.value.solped.includes(s)) && !isAllSolpedSelected.value
+);
+
+const toggleSelectAllSolped = () => {
+    if (isAllSolpedSelected.value) {
+        filters.value.solped = filters.value.solped.filter(s => !filteredSolpedList.value.includes(s));
+    } else {
+        const toAdd = filteredSolpedList.value.filter(s => !filters.value.solped.includes(s));
+        filters.value.solped = [...filters.value.solped, ...toAdd];
+    }
+};
 
 const hes_list = ref([]);
 
@@ -710,6 +785,36 @@ const loadHesList = async () => {
     }
 };
 
+const loadSolpedList = async () => {
+    try {
+        const filtersPayload = {
+            start_date: filters.value.start_date,
+            end_date: filters.value.end_date,
+            service_status: filters.value.service_status,
+            report_status: filters.value.report_status,
+            client_id: filters.value.client_id,
+            client_line_id: filters.value.client_line_id,
+            responsible_id: filters.value.responsible_id,
+            consecutive: filters.value.consecutive,
+            hes: filters.value.hes,
+            oc: filters.value.oc,
+            factura: filters.value.factura,
+            invoice_date_start: filters.value.invoice_date_start,
+            invoice_date_end: filters.value.invoice_date_end,
+        };
+        const response = await axios.post(
+            `${apiUrl}/service_control/get_solped_list`,
+            { filters: filtersPayload },
+            { headers: { Accept: "application/json", Authorization: `Bearer ${token}` } }
+        );
+        if (response.status === 200) {
+            solped_list.value = response.data.data || [];
+        }
+    } catch (error) {
+        console.error('Error al cargar Solped list:', error);
+    }
+};
+
 // Observar cambios en filtros (excepto oc) para recargar la lista de OC dinámicamente
 const filtersForOc = computed(() => ({
     start_date: filters.value.start_date,
@@ -742,7 +847,7 @@ const filtersForHes = computed(() => ({
     client_line_id: filters.value.client_line_id,
     responsible_id: filters.value.responsible_id,
     consecutive: filters.value.consecutive,
-    oc: filters.value.oc,
+    oc: [...filters.value.oc],
     factura: filters.value.factura,
     invoice_date_start: filters.value.invoice_date_start,
     invoice_date_end: filters.value.invoice_date_end,
@@ -750,6 +855,27 @@ const filtersForHes = computed(() => ({
 
 watch(filtersForHes, () => {
     loadHesList();
+}, { deep: true });
+
+// Observar cambios en filtros (excepto solped) para recargar la lista de Solped dinámicamente
+const filtersForSolped = computed(() => ({
+    start_date: filters.value.start_date,
+    end_date: filters.value.end_date,
+    service_status: [...filters.value.service_status],
+    report_status: [...filters.value.report_status],
+    client_id: filters.value.client_id,
+    client_line_id: filters.value.client_line_id,
+    responsible_id: filters.value.responsible_id,
+    consecutive: filters.value.consecutive,
+    hes: [...filters.value.hes],
+    oc: [...filters.value.oc],
+    factura: filters.value.factura,
+    invoice_date_start: filters.value.invoice_date_start,
+    invoice_date_end: filters.value.invoice_date_end,
+}));
+
+watch(filtersForSolped, () => {
+    loadSolpedList();
 }, { deep: true });
 
 const onFilterClienteChange = async () => {
@@ -797,7 +923,7 @@ const limpiarFiltros = async () => {
     filters.value.responsible_id = '';
     filters.value.consecutive = '';
     filters.value.hes = [];
-    filters.value.oc = '';
+    filters.value.oc = [];
     filters.value.factura = '';
     filters.value.invoice_date_start = '';
     filters.value.invoice_date_end = '';
@@ -930,6 +1056,7 @@ onMounted(() => {
     cargarFiltros();
     loadOcList();
     loadHesList();
+    loadSolpedList();
     get_records();
 });
 
