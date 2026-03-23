@@ -1,42 +1,65 @@
 <template>
     <header>
       <div class="profile-container">
-        <img :src="foto" alt="foto perfil">
+        <!-- Foto con dropdown -->
+        <div class="avatar-wrapper" @click="toggleDropdown" ref="avatarWrapper">
+          <img :src="foto" alt="foto perfil">
+          <span class="avatar-caret">&#9660;</span>
+
+          <!-- Dropdown -->
+          <div class="profile-dropdown" v-show="dropdownOpen" @click.stop>
+            <div class="dropdown-header">
+              <span class="dropdown-name">{{ primer_nombre }} {{ primer_apellido }}</span>
+            </div>
+            <router-link class="dropdown-item" :to="{ name: 'dashboard' }" @click="dropdownOpen = false">
+              🏠 Menú Principal
+            </router-link>
+            <router-link class="dropdown-item" :to="{ name: 'profile/edit/', params: { id: usuario } }" @click="dropdownOpen = false">
+              ✏️ Editar Perfil
+            </router-link>
+            <router-link class="dropdown-item" :to="{ name: 'profile/change_password/', params: { id: usuario } }" @click="dropdownOpen = false">
+              🔒 Cambiar Contraseña
+            </router-link>
+            <a class="dropdown-item dropdown-item--danger" href="#" @click.prevent="logout">
+              🚪 Salir
+            </a>
+          </div>
+        </div>
+
         <h1>Bienvenido, {{ primer_nombre }} {{ primer_apellido }}</h1>
       </div>
     </header>
-
-    <nav>
-      <router-link :to="{ name: 'dashboard'}">Menú Principal</router-link>
-      <router-link :to="{ name: 'profile/edit/', params: { id: usuario } }">Editar Perfil</router-link>
-      <router-link :to="{ name: 'profile/change_password/', params: { id: usuario } }">Cambiar Contraseña</router-link>
-      <a href="#" @click="logout">Salir</a>
-    </nav>
-
-    
 </template>
 
 <script setup>
 import apiUrl from "../../../config.js";
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onBeforeUnmount } from 'vue';
 import { useRouter } from 'vue-router';
 
-// Variables reactivas para los datos
 const primer_nombre = ref('');
 const primer_apellido = ref('');
 const foto = ref('');
 const usuario = localStorage.getItem('user_id').toString();
+const dropdownOpen = ref(false);
+const avatarWrapper = ref(null);
 
-// Acceder al enrutador
 const router = useRouter();
 
-// Función para manejar el cierre de sesión
+const toggleDropdown = () => {
+  dropdownOpen.value = !dropdownOpen.value;
+};
+
+const closeOnOutsideClick = (e) => {
+  if (avatarWrapper.value && !avatarWrapper.value.contains(e.target)) {
+    dropdownOpen.value = false;
+  }
+};
+
 function logout() {
   localStorage.clear();
-  router.push('/'); // Redirigir al login
+  router.push('/');
 }
 
-// Código que se ejecuta al montar el componente
 onMounted(() => {
   const token = localStorage.getItem('token');
   const first_name = localStorage.getItem('first_name');
@@ -44,57 +67,131 @@ onMounted(() => {
   const photo = localStorage.getItem('photo');
 
   if (!token) {
-    router.push('/'); // Redirigir al login si no hay token
+    router.push('/');
   }
 
-  // Asignar valores desde localStorage
   primer_nombre.value = first_name || '';
   primer_apellido.value = last_name || '';
   foto.value = `${apiUrl}/${photo}`;
+
+  document.addEventListener('click', closeOnOutsideClick);
+});
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', closeOnOutsideClick);
 });
 </script>
 
 <style scoped>
-*{
+* {
   box-sizing: border-box;
 }
 body {
   margin: 0;
   padding: 0;
 }
+
 header {
-  padding: 25px;
+  padding: 16px 24px;
   background-color: #2a475f;
 }
+
 .profile-container {
   display: flex;
   align-items: center;
-}
-header img {
-  width: 100px;
-  height: 100px;
-  border-radius: 50%;
+  gap: 20px;
 }
 
+/* ── Avatar + dropdown wrapper ── */
+.avatar-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.avatar-wrapper img {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.4);
+  transition: border-color 0.2s;
+  display: block;
+}
+
+.avatar-wrapper:hover img {
+  border-color: rgba(255,255,255,0.9);
+}
+
+.avatar-caret {
+  color: rgba(255,255,255,0.7);
+  font-size: 0.65rem;
+  line-height: 1;
+  align-self: flex-end;
+  margin-bottom: 6px;
+}
+
+/* ── Dropdown ── */
+.profile-dropdown {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  min-width: 200px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.18);
+  z-index: 1050;
+  overflow: hidden;
+  border: 1px solid #e0e0e0;
+}
+
+.dropdown-header {
+  padding: 10px 16px;
+  background-color: #f5f5f5;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.dropdown-name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #2a475f;
+  white-space: nowrap;
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  color: #333;
+  text-decoration: none;
+  font-size: 0.82rem;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+
+.dropdown-item:hover {
+  background-color: #f0f4f8;
+  color: #2a475f;
+}
+
+.dropdown-item--danger {
+  color: #c62828;
+  border-top: 1px solid #eee;
+}
+
+.dropdown-item--danger:hover {
+  background-color: #fdecea;
+  color: #b71c1c;
+}
+
+/* ── Título de bienvenida ── */
 header h1 {
   color: white;
-  margin-left: 25%;
-  text-align: center;
+  font-size: 1.2rem;
+  margin: 0;
+  font-weight: 500;
 }
-
-nav {
-  display: flex;
-  flex-direction: row;
-  background-color: #333;
-}
-
-nav a{
-  color: white;
-  padding: 14px 20px;
-  text-decoration: none;
-}
-nav a:hover{
-  background-color: gray;
-}
-
 </style>
