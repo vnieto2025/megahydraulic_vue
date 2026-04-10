@@ -326,8 +326,26 @@
               <td data-label="oc">{{ record.oc }}</td>
               <td data-label="Posición">{{ record.position }}</td>
               <td data-label="Hes">{{ record.hes }}</td>
-              <td data-label="Estado">{{ record.service_status_name }}</td>
-              <td data-label="Informe">{{ record.report_status_name }}</td>
+              <td data-label="Estado">
+                <select
+                  :value="record.service_status"
+                  @change="updateInlineStatus(record, 'service_status', $event.target.value)"
+                  class="select-inline"
+                  :disabled="!!updatingStatus[record.id + '_service']"
+                >
+                  <option v-for="ss in service_status_list" :key="ss.id" :value="ss.id">{{ ss.name }}</option>
+                </select>
+              </td>
+              <td data-label="Informe">
+                <select
+                  :value="record.report_status"
+                  @change="updateInlineStatus(record, 'report_status', $event.target.value)"
+                  class="select-inline"
+                  :disabled="!!updatingStatus[record.id + '_report']"
+                >
+                  <option v-for="rs in report_status_list" :key="rs.id" :value="rs.id">{{ rs.name }}</option>
+                </select>
+              </td>
               <td data-label="Consecutivo">
                 <router-link
                   v-if="record.consecutive"
@@ -570,6 +588,40 @@ const convert_record_id = ref(0);
 const isConverting = ref(false);
 const selectedRecords = ref([]);
 const isConvertingMasivo = ref(false);
+const updatingStatus = ref({});
+
+const updateInlineStatus = async (record, field, newValue) => {
+    const key = `${record.id}_${field === 'service_status' ? 'service' : 'report'}`;
+    updatingStatus.value[key] = true;
+    try {
+        await axios.post(
+            `${apiUrl}/service_control/update_inline_status`,
+            { record_id: record.id, [field]: parseInt(newValue) },
+            { headers: { Accept: "application/json", Authorization: `Bearer ${token}` } }
+        );
+        record[field] = parseInt(newValue);
+        if (field === 'service_status') {
+            const found = service_status_list.value.find(s => s.id === parseInt(newValue));
+            if (found) record.service_status_name = found.name;
+        } else {
+            const found = report_status_list.value.find(s => s.id === parseInt(newValue));
+            if (found) record.report_status_name = found.name;
+        }
+    } catch (error) {
+        console.error('Error al actualizar estado:', error);
+        errorMsg.value = error.response?.data?.message || 'Error al actualizar el estado';
+        if (error.response?.status === 401) {
+            token_status.value = 401;
+            errorMsg.value = error.response.data.detail;
+        } else if (error.response?.status === 403) {
+            token_status.value = 403;
+            errorMsg.value = error.response.data.detail;
+        }
+        modalErrorInstance.value.show();
+    } finally {
+        updatingStatus.value[key] = false;
+    }
+};
 
 const isAllSelected = computed(() => {
     const convertibles = record_list.value.filter(r => !r.report_id);
@@ -1604,5 +1656,27 @@ html {
 .clear-oc:hover {
   color: #333;
   background-color: #e9ecef;
+}
+
+.select-inline {
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 0.78rem;
+  background-color: #fff;
+  cursor: pointer;
+  min-width: 110px;
+  transition: border-color 0.2s;
+}
+
+.select-inline:focus {
+  outline: none;
+  border-color: #2a475f;
+  box-shadow: 0 0 0 2px rgba(42,71,95,0.15);
+}
+
+.select-inline:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 </style>
