@@ -1,4 +1,4 @@
-<template>
+﻿<template>
     <LayoutView>
 
         <!-- Selector de tipo de reporte -->
@@ -383,40 +383,37 @@
 </template>
 
 <script setup>
-import apiUrl from "../../config.js";
-import { ref, onMounted } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import axios from 'axios';
 import LayoutView from '../views/Layouts/LayoutView.vue';
 import { Modal } from 'bootstrap';
+import { useAuthStore } from '../stores/auth.js';
+import {
+    useParamClients, useParamLinesByClient, useParamUsersByClient,
+    useParamTypeService, useParamTypeEquipments, useParamTasksByEquipment,
+} from '../composables/useParams.js';
+import { useCreateReport, useGenerateReport } from '../composables/useReports.js';
+import { useCreateReportAcesco, useGenerateReportAcesco } from '../composables/useReportsAcesco.js';
 
-// Tipo de reporte seleccionado: '' = sin selección, 0 = Estándar, 1 = Acesco
+const auth = useAuthStore();
+const router = useRouter();
+
+// ── Estado general ───────────────────────────────────────────────────────────
 const tipo_reporte = ref('');
-
-// Variables compartidas
-const client_list = ref([]);
-const servicios_list = ref([]);
-const equipos_list = ref([]);
-const user_id = localStorage.getItem('user_id');
-const token = localStorage.getItem('token');
 const modalInstance = ref(null);
+const modalErrorInstance = ref(null);
 const report_id = ref('');
 const msg = ref('');
 const error = ref('');
-const modalErrorInstance = ref(null);
 const errorMsg = ref('');
-const token_status = ref(0);
 const isLoading = ref(false);
 
-// Variables Reporte Estándar
-const line_list = ref([]);
-const person_list = ref([]);
+// ── Variables Reporte Estándar ───────────────────────────────────────────────
 const servicios_seleccionados = ref([]);
 const tasks_list = ref([]);
 const tasks = ref([]);
 const imagenes = ref([]);
 const fecha_actividad = ref('');
-const fecha_actividad_formateada = ref('');
 const cliente = ref('');
 const linea = ref('');
 const persona = ref('');
@@ -429,13 +426,10 @@ const nombre_equipo = ref('');
 const descripcion_servicio = ref('');
 const informacion = ref('');
 
-// Variables Reporte Acesco
-const acesco_line_list = ref([]);
-const acesco_person_list = ref([]);
+// ── Variables Reporte Acesco ─────────────────────────────────────────────────
 const acesco_imagenes = ref([null, null]);
 const acesco_anexos = ref([]);
 const acesco_fecha_actividad = ref('');
-const acesco_fecha_actividad_formateada = ref('');
 const acesco_cliente = ref('');
 const acesco_linea = ref('');
 const acesco_persona = ref('');
@@ -452,472 +446,210 @@ const acesco_recomendaciones = ref('');
 const acesco_tecnico1 = ref('');
 const acesco_tecnico2 = ref('');
 
-// Acceder al enrutador
-const router = useRouter();
+// ── Queries de parámetros ────────────────────────────────────────────────────
+const { data: clientsParamData } = useParamClients();
+const client_list = computed(() => clientsParamData.value ?? []);
 
-// ─── Funciones Reporte Estándar ───────────────────────────────────────────────
+const { data: serviciosData } = useParamTypeService();
+const servicios_list = computed(() => serviciosData.value ?? []);
 
-const createReport = async () => {
-    try {
-        if (!token) {
-            router.push('/'); // Redirigir al login si no hay token
-        }
+const { data: equiposData } = useParamTypeEquipments();
+const equipos_list = computed(() => equiposData.value ?? []);
 
-        isLoading.value = true; // Activar la espera
+const { data: linesData } = useParamLinesByClient(cliente);
+const line_list = computed(() => linesData.value ?? []);
 
-        const [year, month, day] = fecha_actividad.value.split("-");
+const { data: personsData } = useParamUsersByClient(cliente);
+const person_list = computed(() => personsData.value ?? []);
 
-        fecha_actividad_formateada.value = `${day}-${month}-${year}`
+const { data: acescoLinesData } = useParamLinesByClient(acesco_cliente);
+const acesco_line_list = computed(() => acescoLinesData.value ?? []);
 
-        tasks.value = tasks_list.value.map((task) => ({
-            task_id: task.id,
-            positive: task.positive,
-            negative: task.positive === 1 ? 0 : 1,
-            description: task.description,
-        }));
+const { data: acescoPersonsData } = useParamUsersByClient(acesco_cliente);
+const acesco_person_list = computed(() => acescoPersonsData.value ?? []);
 
-        const response = await axios.post(
-            `${apiUrl}/reports/create_report`,
-            {
-                activity_date: fecha_actividad_formateada.value,
-                client_id: cliente.value,
-                client_line_id: linea.value,
-                person_receives: persona.value,
-                om: om.value,
-                solped: solped.value,
-                buy_order: orden_compra.value,
-                position: posicion.value,
-                type_service: servicios_seleccionados.value,
-                equipment_type_id: tipo_equipo.value,
-                equipment_name: nombre_equipo.value,
-                service_description: descripcion_servicio.value,
-                information: informacion.value,
-                task_list: tasks.value,
-                files: imagenes.value,
-                user_id: user_id,
+const { data: rawTasksData } = useParamTasksByEquipment(tipo_equipo);
+watch([rawTasksData, tipo_equipo], ([rawTasks, tipoEquip]) => {
+    if (tipoEquip === 5) { tasks_list.value = []; return; }
+    tasks_list.value = (rawTasks ?? []).map(task => ({
+        ...task,
+        positive: 1,
+        description: '',
+    }));
+});
+
+// ── Mutations ────────────────────────────────────────────────────────────────
+const { mutate: createReportMutate } = useCreateReport();
+const { mutate: createReportAcescoMutate } = useCreateReportAcesco();
+const { mutate: generateReportMutate } = useGenerateReport();
+const { mutate: generateReportAcescoMutate } = useGenerateReportAcesco();
+
+// ── Funciones Reporte Estándar ───────────────────────────────────────────────
+const createReport = () => {
+    isLoading.value = true;
+    const [year, month, day] = fecha_actividad.value.split('-');
+    const fecha_formateada = `${day}-${month}-${year}`;
+    tasks.value = tasks_list.value.map((task) => ({
+        task_id: task.id,
+        positive: task.positive,
+        negative: task.positive === 1 ? 0 : 1,
+        description: task.description,
+    }));
+    createReportMutate(
+        {
+            activity_date: fecha_formateada,
+            client_id: cliente.value,
+            client_line_id: linea.value,
+            person_receives: persona.value,
+            om: om.value,
+            solped: solped.value,
+            buy_order: orden_compra.value,
+            position: posicion.value,
+            type_service: servicios_seleccionados.value,
+            equipment_type_id: tipo_equipo.value,
+            equipment_name: nombre_equipo.value,
+            service_description: descripcion_servicio.value,
+            information: informacion.value,
+            task_list: tasks.value,
+            files: imagenes.value,
+            user_id: auth.userId,
+        },
+        {
+            onSuccess: (response) => {
+                msg.value = response.data.message;
+                report_id.value = response.data.data;
+                modalInstance.value.show();
             },
-            {
-                headers: {
-                    Accept: "application/json",
-                    Authorization: `Bearer ${token}`
-                }
-            }
-        );
-        if (response.status === 201) {
-            msg.value = response.data.message
-            report_id.value = response.data.data
-            modalInstance.value.show();                    
-        }else if (response.status === 200) {
-            error.value = response.data.message
+            onError: (err) => {
+                errorMsg.value = err.response?.data?.message || 'Error al guardar reporte';
+                modalErrorInstance.value.show();
+            },
+            onSettled: () => { isLoading.value = false; },
         }
-    } catch (error) {
-        console.error('Error al guardar reporte:', error);
-        modalErrorInstance.value.show();
-        errorMsg.value = error.response.data.message;
-        if (error.response.status === 401) {
-          token_status.value = error.response.status
-          errorMsg.value = error.response.data.detail;
-        } else if (error.response.status === 403) {
-            token_status.value = error.response.status
-            errorMsg.value = error.response.data.detail;
-        }
-    } finally {
-        isLoading.value = false; // Desactivar la espera
-    }
+    );
 };
 
-const generar_pdf = async () => {
-    try {
-        if (!token) {
-            router.push('/'); // Redirigir al login si no hay token
+// ── Funciones Reporte Acesco ─────────────────────────────────────────────────
+const createReportAcesco = () => {
+    isLoading.value = true;
+    const [year, month, day] = acesco_fecha_actividad.value.split('-');
+    const fecha_formateada = `${day}-${month}-${year}`;
+    const tech1 = acesco_tecnico1.value?.toUpperCase() || '';
+    const tech2 = acesco_tecnico2.value?.toUpperCase() || '';
+    const zona = acesco_zona_trabajo.value?.toUpperCase() || '';
+    createReportAcescoMutate(
+        {
+            activity_date: fecha_formateada,
+            client_id: acesco_cliente.value,
+            client_line_id: acesco_linea.value,
+            person_receives: acesco_persona.value,
+            work_zone: zona,
+            om: acesco_om.value,
+            solped: acesco_solped.value,
+            buy_order: acesco_orden_compra.value,
+            position: acesco_posicion.value,
+            service_description: acesco_descripcion_servicio.value,
+            information: acesco_informacion.value,
+            service_value: acesco_valor_servicio.value,
+            conclutions: acesco_conclusiones.value,
+            recommendations: acesco_recomendaciones.value,
+            tech_1: tech1,
+            tech_2: tech2,
+            files: acesco_imagenes.value,
+            anexos: acesco_anexos.value,
+            user_id: auth.userId,
+        },
+        {
+            onSuccess: (response) => {
+                msg.value = response.data.message;
+                report_id.value = response.data.data;
+                modalInstance.value.show();
+            },
+            onError: (err) => {
+                errorMsg.value = err.response?.data?.message || 'Error al guardar reporte Acesco';
+                modalErrorInstance.value.show();
+            },
+            onSettled: () => { isLoading.value = false; },
         }
-
-        let endpoint = '';
-        let filename_prefix = '';
-        let body = { report_id: report_id.value, flag: true };
-
-        if (tipo_reporte.value === 0) {
-            endpoint = `${apiUrl}/reports/generate_report`;
-            filename_prefix = 'reporte';
-        } else {
-            endpoint = `${apiUrl}/reports/generate_report_acesco`;
-            filename_prefix = 'reporte_acesco';
-        }
-
-        const response = await axios.post(
-            endpoint,
-            body,
-            {
-                headers: {
-                    Accept: "application/json",
-                    Authorization: `Bearer ${token}`
-                },
-                responseType: "blob",  // Indicar que esperamos un archivo binario
-            }
-        );
-        if (response.status === 200) {
-            // Crear una URL para el blob
-            const url = window.URL.createObjectURL(new Blob([response.data], { type: "application/pdf" }));
-            // Crear un enlace temporal para descargar el archivo
-            const link = document.createElement("a");
-            link.href = url;
-            link.setAttribute("download", `${filename_prefix}_${report_id.value}.pdf`);
-            document.body.appendChild(link);
-            link.click();  // Ejecutar el click para descargar el archivo
-            document.body.removeChild(link);  // Limpiar el DOM
-            goListaReportes();
-        }
-    } catch (error) {
-        console.error('Error al generar pdf:', error);
-        modalErrorInstance.value.show();
-        errorMsg.value = error.response.data.message;
-        if (error.response.status === 401) {
-          token_status.value = error.response.status
-          errorMsg.value = "El token ha expirado.";
-        } else if (error.response.status === 403) {
-            token_status.value = error.response.status
-            errorMsg.value = error.response.data.detail;
-        }
-    }
+    );
 };
 
-const cargarDatos = async () => {
-    try {
-        const response = await axios.post(
-            `${apiUrl}/params/get_clients`, {},
-            {
-                headers: {
-                    Accept: "application/json",
-                    Authorization: `Bearer ${token}`
-                }
-            }
-        );
-
-        if (response.status === 200) {
-            msg.value = response.data.message;
-            client_list.value = response.data.data;
+// ── PDF ──────────────────────────────────────────────────────────────────────
+const generar_pdf = () => {
+    const isAcesco = tipo_reporte.value === 1;
+    const generateFn = isAcesco ? generateReportAcescoMutate : generateReportMutate;
+    const prefix = isAcesco ? 'reporte_acesco' : 'reporte';
+    generateFn(
+        { reportId: report_id.value, flag: true },
+        {
+            onSuccess: (response) => {
+                const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+                const link = document.createElement('a');
+                link.href = url;
+                link.setAttribute('download', `${prefix}_${report_id.value}.pdf`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                goListaReportes();
+            },
+            onError: (err) => {
+                errorMsg.value = err.response?.data?.message || 'Error al generar PDF';
+                modalErrorInstance.value.show();
+            },
         }
-
-        const responseServices = await axios.post(
-            `${apiUrl}/params/get_type_service`, {},
-            {
-                headers: {
-                    Accept: "application/json",
-                    Authorization: `Bearer ${token}`
-                }
-            }
-        );
-        if (responseServices.status === 200) {
-            msg.value = responseServices.data.message;
-            servicios_list.value = responseServices.data.data;
-        }
-
-        const responseEquipments = await axios.post(
-            `${apiUrl}/params/get_type_equipments`, {},
-            {
-                headers: {
-                    Accept: "application/json",
-                    Authorization: `Bearer ${token}`
-                }
-            }
-        );
-        if (responseEquipments.status === 200) {
-            msg.value = responseEquipments.data.message;
-            equipos_list.value = responseEquipments.data.data;
-        }
-
-    } catch (error) {
-        console.error('Error al cargar los datos:', error);
-        modalErrorInstance.value.show();
-        errorMsg.value = error.response.data.message;
-        if (error.response.status === 401) {
-          token_status.value = error.response.status
-          errorMsg.value = error.response.data.detail;
-        } else if (error.response.status === 403) {
-            token_status.value = error.response.status
-            errorMsg.value = error.response.data.detail;
-        }
-    }
-
+    );
 };
 
-const onClienteChange = async () => {
-    try {
-        // Carga de líneas asociadas al cliente seleccionado
-        const responseLineas = await axios.post(
-            `${apiUrl}/params/get_lines_by_client`, 
-            { client: cliente.value },
-            {
-                headers: {
-                    Accept: "application/json",
-                    Authorization: `Bearer ${token}`,
-                }
-            }
-        );
-        line_list.value = responseLineas.data.data || [];
-
-        // Carga de personas asociadas al cliente seleccionado
-        const responsePersonas = await axios.post(
-            `${apiUrl}/params/get_users_by_client`, 
-            { client: cliente.value },
-            {
-                headers: {
-                    Accept: "application/json",
-                    Authorization: `Bearer ${token}`,
-                }
-            }
-        );
-        person_list.value = responsePersonas.data.data || [];
-
-    } catch (error) {
-        console.error('Error al cargar datos dinámicos:', error);
-        modalErrorInstance.value.show();
-        errorMsg.value = error.response.data.message;
-        if (error.response.status === 401) {
-          token_status.value = error.response.status
-          errorMsg.value = error.response.data.detail;
-        }  else if (error.response.status === 403) {
-            token_status.value = error.response.status
-            errorMsg.value = error.response.data.detail;
-        }
-    }
-};
-
-const onChangeTasks = async () => {
-    try {
-        if (tipo_equipo.value === 5){
-            tasks_list.value = [];
-            return
-        }
-        const response = await axios.post(
-            `${apiUrl}/params/get_tasks_by_equipment`, 
-            { equipment: tipo_equipo.value },
-            {
-                headers: {
-                    Accept: "application/json",
-                    Authorization: `Bearer ${token}`,
-                }
-            }
-        );
-        tasks_list.value = response.data.data.map(task => ({
-            ...task, // Conservamos los campos originales
-            positive: 1, // Por defecto, el radio "Sí" está seleccionado
-            description: "", // Por defecto, la descripción es vacía
-        }));
-
-    } catch (error) {
-        console.error('Error al cargar datos dinámicos:', error);
-        modalErrorInstance.value.show();
-        errorMsg.value = error.response.data.message;
-        if (error.response.status === 401) {
-          token_status.value = error.response.status
-          errorMsg.value = error.response.data.detail;
-        } else if (error.response.status === 403) {
-            token_status.value = error.response.status
-            errorMsg.value = error.response.data.detail;
-        }
-    }
-};
-
-const addImageInput = async () => {
-    // Agregamos un elemento vacío a la lista de imágenes
-    imagenes.value.push({ img: "", description: "" });
-};
-
-const removeImageInput = async (index) => {
-    // Eliminamos una imagen de la lista
-    imagenes.value.splice(index, 1);
-};
-
-const handleImageChange = async (event, index) => {
-    const file = event.target.files[0]; // Obtenemos el archivo cargado
+// ── Imágenes Estándar ────────────────────────────────────────────────────────
+const addImageInput = () => { imagenes.value.push({ img: '', description: '' }); };
+const removeImageInput = (index) => { imagenes.value.splice(index, 1); };
+const handleImageChange = (event, index) => {
+    const file = event.target.files[0];
     if (file) {
         const reader = new FileReader();
         reader.onload = () => {
-            // Actualizamos directamente el valor en el índice correspondiente
-            imagenes.value[index] = {
-                img: reader.result, // Base64 de la imagen
-                description: imagenes.value[index]?.description || "" // Mantener la descripción
-            };
+            imagenes.value[index] = { img: reader.result, description: imagenes.value[index]?.description || '' };
         };
         reader.readAsDataURL(file);
     }
 };
 
+// ── Imágenes Acesco ──────────────────────────────────────────────────────────
+const handleImageChangeAcesco = (event, index) => {
+    const file = event.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = () => { acesco_imagenes.value[index] = reader.result; };
+        reader.readAsDataURL(file);
+    }
+};
+const addAnexoInput = () => { acesco_anexos.value.push({ img: '' }); };
+const removeAnexoInput = (index) => { acesco_anexos.value.splice(index, 1); };
+const handleImageChangeDinamicAcesco = (event, index) => {
+    const file = event.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = () => { acesco_anexos.value[index] = reader.result; };
+        reader.readAsDataURL(file);
+    }
+};
+
+// ── Navegación ───────────────────────────────────────────────────────────────
 const goListaReportes = () => {
-    if (tipo_reporte.value === 1) {
-        router.push('/reports-acesco');
-    } else {
-        router.push('/reports');
-    }
+    if (tipo_reporte.value === 1) router.push('/reports-acesco');
+    else router.push('/reports');
 };
+function logout() { auth.clearSession(); router.push('/'); }
+function redirigir_dashboard() { router.push('/dashboard'); }
 
-// Función para manejar el cierre de sesión
-function logout() {
-  localStorage.clear();
-  router.push('/'); // Redirigir al login
-};
-function redirigir_dashboard() {
-  router.push('/dashboard'); // Redirigir al dashboard
-};
+// Mantenidos como no-ops para compatibilidad con el template
+const onClienteChange = () => {};
+const onClienteChangeAcesco = () => {};
+const onChangeTasks = () => {};
 
-// ─── Funciones Reporte Acesco ──────────────────────────────────────────────────
-
-const createReportAcesco = async () => {
-    try {
-        if (!token) {
-            router.push('/'); // Redirigir al login si no hay token
-        }
-
-        isLoading.value = true; // Activar la espera
-
-        const [year, month, day] = acesco_fecha_actividad.value.split("-");
-        acesco_fecha_actividad_formateada.value = `${day}-${month}-${year}`;
-
-        if (acesco_tecnico1.value) {
-            acesco_tecnico1.value = acesco_tecnico1.value.toUpperCase();
-        }
-        if (acesco_tecnico2.value) {
-            acesco_tecnico2.value = acesco_tecnico2.value.toUpperCase();
-        }
-        if (acesco_zona_trabajo.value) {
-            acesco_zona_trabajo.value = acesco_zona_trabajo.value.toUpperCase();
-        }
-
-        const response = await axios.post(
-            `${apiUrl}/reports/create_report_acesco`,
-            {
-                activity_date: acesco_fecha_actividad_formateada.value,
-                client_id: acesco_cliente.value,
-                client_line_id: acesco_linea.value,
-                person_receives: acesco_persona.value,
-                work_zone: acesco_zona_trabajo.value,
-                om: acesco_om.value,
-                solped: acesco_solped.value,
-                buy_order: acesco_orden_compra.value,
-                position: acesco_posicion.value,
-                service_description: acesco_descripcion_servicio.value,
-                information: acesco_informacion.value,
-                service_value: acesco_valor_servicio.value,
-                conclutions: acesco_conclusiones.value,
-                recommendations: acesco_recomendaciones.value,
-                tech_1: acesco_tecnico1.value,
-                tech_2: acesco_tecnico2.value,
-                files: acesco_imagenes.value,
-                anexos: acesco_anexos.value,
-                user_id: user_id,
-            },
-            {
-                headers: {
-                    Accept: "application/json",
-                    Authorization: `Bearer ${token}`
-                }
-            }
-        );
-        if (response.status === 201) {
-            msg.value = response.data.message;
-            report_id.value = response.data.data;
-            modalInstance.value.show();
-        } else if (response.status === 200) {
-            error.value = response.data.message;
-        }
-    } catch (error) {
-        console.error('Error al guardar reporte Acesco:', error);
-        modalErrorInstance.value.show();
-        errorMsg.value = error.response.data.message;
-        if (error.response.status === 401) {
-          token_status.value = error.response.status;
-          errorMsg.value = error.response.data.detail;
-        } else if (error.response.status === 403) {
-            token_status.value = error.response.status;
-            errorMsg.value = error.response.data.detail;
-        }
-    } finally {
-        isLoading.value = false; // Desactivar la espera
-    }
-};
-
-const onClienteChangeAcesco = async () => {
-    try {
-        // Carga de líneas asociadas al cliente seleccionado
-        const responseLineas = await axios.post(
-            `${apiUrl}/params/get_lines_by_client`,
-            { client: acesco_cliente.value },
-            {
-                headers: {
-                    Accept: "application/json",
-                    Authorization: `Bearer ${token}`,
-                }
-            }
-        );
-        acesco_line_list.value = responseLineas.data.data || [];
-
-        // Carga de personas asociadas al cliente seleccionado
-        const responsePersonas = await axios.post(
-            `${apiUrl}/params/get_users_by_client`,
-            { client: acesco_cliente.value },
-            {
-                headers: {
-                    Accept: "application/json",
-                    Authorization: `Bearer ${token}`,
-                }
-            }
-        );
-        acesco_person_list.value = responsePersonas.data.data || [];
-
-    } catch (error) {
-        console.error('Error al cargar datos dinámicos Acesco:', error);
-        modalErrorInstance.value.show();
-        errorMsg.value = error.response.data.message;
-        if (error.response.status === 401) {
-          token_status.value = error.response.status;
-          errorMsg.value = error.response.data.detail;
-        } else if (error.response.status === 403) {
-            token_status.value = error.response.status;
-            errorMsg.value = error.response.data.detail;
-        }
-    }
-};
-
-const handleImageChangeAcesco = async (event, index) => {
-    const file = event.target.files[0];
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = () => {
-            acesco_imagenes.value[index] = reader.result; // Base64 de la imagen
-        };
-        reader.readAsDataURL(file);
-    }
-};
-
-const addAnexoInput = async () => {
-    acesco_anexos.value.push({ img: "" });
-};
-
-const removeAnexoInput = async (index) => {
-    acesco_anexos.value.splice(index, 1);
-};
-
-const handleImageChangeDinamicAcesco = async (event, index) => {
-    const file = event.target.files[0];
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = () => {
-            acesco_anexos.value[index] = reader.result;
-        };
-        reader.readAsDataURL(file);
-    }
-};
-
-// Código que se ejecuta al montar el componente
 onMounted(() => {
     modalInstance.value = new Modal(exitoModal);
     modalErrorInstance.value = new Modal(errorModal);
-    if (!token) {
-        router.push('/'); // Redirigir al login si no hay token
-    }
-    // Cargar los datos para los select inputs cuando se monta el componente
-    cargarDatos();
 });
 </script>
 

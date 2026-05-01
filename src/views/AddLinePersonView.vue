@@ -88,12 +88,12 @@
 </template>
 
 <script setup>
-import apiUrl from "../../config.js";
 import { useRouter } from "vue-router";
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import LayoutView from '../views/Layouts/LayoutView.vue';
-import axios from 'axios';
 import { Modal } from 'bootstrap';
+import { useParamClients } from '../composables/useParams.js';
+import { useAddLinePerson } from '../composables/useClients.js';
 
 const router = useRouter();
 
@@ -101,10 +101,8 @@ const cliente = ref(0);
 const lineas = ref([]);
 const nuevaLinea = ref('');
 const personas = ref([]);
-const client_list = ref([]);
 const nuevaPersona = ref('');
 
-const token = localStorage.getItem('token');
 const modalInstance = ref(null);
 const modalErrorInstance = ref(null);
 const msg = ref('');
@@ -112,75 +110,34 @@ const error = ref('');
 const errorMsg = ref('');
 const token_status = ref(0);
 
+const { data: clientsData } = useParamClients();
+const client_list = computed(() => clientsData.value?.data?.data ?? []);
 
-const agregarLineaPersona = async () => {
-    try {
-        if (!token) {
-            router.push('/'); // Redirigir al login si no hay token
-        }
+const { mutate: addLinePerson } = useAddLinePerson();
 
-        const response = await axios.post(
-            `${apiUrl}/client/add_line_person`,
-            {
-                client_id: cliente.value,
-                lines_list: lineas.value,
-                person_list: personas.value,
+const agregarLineaPersona = () => {
+    addLinePerson(
+        {
+            client_id: cliente.value,
+            lines_list: lineas.value,
+            person_list: personas.value,
+        },
+        {
+            onSuccess: (response) => {
+                msg.value = response.data.message;
+                modalInstance.value.show();
             },
-            {
-                headers: {
-                    Accept: "application/json",
-                    Authorization: `Bearer ${token}`
-                }
+            onError: (err) => {
+                errorMsg.value = err.response?.data?.message || 'Error';
+                token_status.value = err.response?.status || 0;
+                if (err.response?.status === 401) errorMsg.value = err.response.data.detail;
+                else if (err.response?.status === 403) errorMsg.value = err.response.data.detail;
+                modalErrorInstance.value.show();
             }
-        );
-        if (response.status === 201) {
-            msg.value = response.data.message
-            modalInstance.value.show();
-        }else if (response.status === 200) {
-            msg.value = response.data.message
         }
-    } catch (error) {
-        modalErrorInstance.value.show()
-        errorMsg.value = error.response.data.message;
-        if (error.response.status === 401) {
-          token_status.value = error.response.status
-          errorMsg.value = error.response.data.detail;
-        } else if (error.response.status === 403) {
-            token_status.value = error.response.status
-            errorMsg.value = error.response.data.detail;
-        }
-    }
+    );
 };
-const cargarDatos = async () => {
-    try {
-        const response = await axios.post(
-            `${apiUrl}/params/get_clients`, {},
-            {
-                headers: {
-                    Accept: "application/json",
-                    Authorization: `Bearer ${token}`
-                }
-            }
-        );
 
-        if (response.status === 200) {
-            msg.value = response.data.message;
-            client_list.value = response.data.data;
-        }
-
-    } catch (error) {
-        console.error('Error al cargar los datos:', error);
-        modalErrorInstance.value.show()
-        errorMsg.value = error.response.data.message;
-        if (error.response.status === 401) {
-          token_status.value = error.response.status
-          errorMsg.value = error.response.data.detail;
-        } else if (error.response.status === 403) {
-            token_status.value = error.response.status
-            errorMsg.value = error.response.data.detail;
-        }
-    }
-};
 const agregarParam = (nuevaLista, param) => {
     if (param !== '') {
         nuevaLista.push(param);
@@ -191,26 +148,13 @@ const agregarParam = (nuevaLista, param) => {
 const eliminarParam = (nuevaLista, index) => {
     nuevaLista.splice(index, 1);
 };
-const redirect = () => {
-    router.push('/clients');
-};
-// Función para manejar el cierre de sesión
-function logout() {
-  localStorage.clear();
-  router.push('/'); // Redirigir al login
-};
-function redirigir_dashboard() {
-  router.push('/dashboard'); // Redirigir al dashboard
-};
+const redirect = () => { router.push('/clients'); };
+function logout() { router.push('/'); };
+function redirigir_dashboard() { router.push('/dashboard'); };
 
-// Código que se ejecuta al montar el componente
 onMounted(() => {
     modalInstance.value = new Modal(exitoModal);
     modalErrorInstance.value = new Modal(errorModal);
-    if (!token) {
-        router.push('/'); // Redirigir al login si no hay token
-    }
-    cargarDatos();
 });
 
 </script>

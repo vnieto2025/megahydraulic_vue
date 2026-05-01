@@ -35,15 +35,17 @@
 import apiUrl from "../../../config.js";
 import { ref, onMounted, onBeforeUnmount } from 'vue';
 import { useRouter } from 'vue-router';
+import { useAuthStore } from '../../stores/auth.js';
 
-const primer_nombre = ref('');
-const primer_apellido = ref('');
-const foto = ref('');
-const usuario = localStorage.getItem('user_id').toString();
+const auth = useAuthStore();
 const dropdownOpen = ref(false);
 const avatarWrapper = ref(null);
-
 const router = useRouter();
+
+const primer_nombre = auth.firstName;
+const primer_apellido = auth.lastName;
+const foto = `${apiUrl}/${auth.photo}`;
+const usuario = auth.userId;
 
 const toggleDropdown = () => {
   dropdownOpen.value = !dropdownOpen.value;
@@ -56,24 +58,14 @@ const closeOnOutsideClick = (e) => {
 };
 
 function logout() {
-  localStorage.clear();
+  auth.clearSession();
   router.push('/');
 }
 
 onMounted(() => {
-  const token = localStorage.getItem('token');
-  const first_name = localStorage.getItem('first_name');
-  const last_name = localStorage.getItem('last_name');
-  const photo = localStorage.getItem('photo');
-
-  if (!token) {
+  if (!auth.isAuthenticated) {
     router.push('/');
   }
-
-  primer_nombre.value = first_name || '';
-  primer_apellido.value = last_name || '';
-  foto.value = `${apiUrl}/${photo}`;
-
   document.addEventListener('click', closeOnOutsideClick);
 });
 

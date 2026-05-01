@@ -239,15 +239,20 @@
 </template>
 
 <script setup>
-import apiUrl from "../../config.js";
 import { ref, onMounted, computed } from 'vue';
 import { useRouter } from "vue-router";
-import axios from 'axios';
 import LayoutView from '../views/Layouts/LayoutView.vue';
 import ojo from "@/assets/icons/ojo.png";
 import pdf from "@/assets/icons/pdf.png";
 import desactivar from "@/assets/icons/trash.svg";
 import { Modal } from 'bootstrap';
+import { useAuthStore } from '../stores/auth.js';
+import { useParamClients } from '../composables/useParams.js';
+import { useReportAcescoList, useGenerateReportAcesco, useGenerateMultipleReportsAcesco } from '../composables/useReportsAcesco.js';
+import { useChangeStatusReport } from '../composables/useReports.js';
+
+const auth = useAuthStore();
+const router = useRouter();
 
 const filters = ref({
   om: '',
@@ -257,298 +262,148 @@ const filters = ref({
   start_date: '',
   end_date: ''
 });
-
 const currentSolped = ref('');
-
-const addSolped = () => {
-    if (currentSolped.value.trim()) {
-        if (!Array.isArray(filters.value.solped)) {
-             filters.value.solped = [];
-        }
-        filters.value.solped.push(currentSolped.value.trim());
-        currentSolped.value = '';
-    }
-};
-
-const removeSolped = (index) => {
-    filters.value.solped.splice(index, 1);
-};
-
-const modalInstanceExito  = ref(null);
-const modalErrorInstance = ref(null);
-const modalInstancePregunta = ref(null);
-const user_id = parseInt(localStorage.getItem('user_id'));
-const user_type_id = localStorage.getItem('user_type_id');
-const token = localStorage.getItem('token');
-const msg = ref('');
-
-const report_id = ref(0);
-const report_list = ref([]);
-const client_list = ref([]);
-const total_paginas = ref(0);
-const total_registros = ref(0);
-
 const limit = ref(50);
 const position = ref(1);
-const state = ref(true);
-
+const report_id = ref(0);
+const msg = ref('');
 const errorMsg = ref('');
 const token_status = ref(0);
 const pregunta = ref('');
 const selectedReports = ref([]);
 
-const router = useRouter();
+const modalInstanceExito  = ref(null);
+const modalErrorInstance = ref(null);
+const modalInstancePregunta = ref(null);
 
+const payload = computed(() => ({
+    limit: parseInt(limit.value),
+    position: position.value,
+    state: auth.userTypeId == 1,
+    filters: filters.value,
+    user_id: auth.userId
+}));
 
-const get_reports = async () => {
-  try {
-        state.value = user_type_id == 1 ? true : false;
-        const response = await axios.post(
-            `${apiUrl}/reports/list_report_acesco`, 
-            {
-                limit: parseInt(limit.value),
-                position: position.value,
-                state: state.value,
-                filters: filters.value,
-                user_id: user_id
-            },
-            {
-                headers: {
-                    Accept: "application/json",
-                    Authorization: `Bearer ${token}`
-                }
-            }
-        );
+const { data: reportsData } = useReportAcescoList(payload);
+const report_list = computed(() => reportsData.value?.reportes ?? []);
+const total_paginas = computed(() => reportsData.value?.total_pag ?? 0);
 
-        if (response.status === 200) {
-            report_list.value = response.data.data.reportes;
-            total_paginas.value = response.data.data.total_pag;
-            total_registros.value = response.data.data.total_registros;
-            position.value = response.data.data.posicion_pag;
-        }
-    } catch (error) {
-        console.error('Error al cargar los datos:', error);
-        modalErrorInstance.value.show();
-        errorMsg.value = error.response.data.message;
-        if (error.response.status === 401) {
-          token_status.value = error.response.status
-          errorMsg.value = error.response.data.detail;
-        }else if (error.response.status === 403) {
-          token_status.value = error.response.status
-          errorMsg.value = error.response.data.detail;
-        }
+const { data: clientsParamData } = useParamClients();
+const client_list = computed(() => clientsParamData.value ?? []);
+
+const { mutate: generateReport } = useGenerateReportAcesco();
+const { mutate: generateMultiple } = useGenerateMultipleReportsAcesco();
+const { mutate: changeStatus } = useChangeStatusReport();
+
+const addSolped = () => {
+    if (currentSolped.value.trim()) {
+        if (!Array.isArray(filters.value.solped)) filters.value.solped = [];
+        filters.value.solped.push(currentSolped.value.trim());
+        currentSolped.value = '';
     }
-}
-const changePage = async (newPosition) => {
-  position.value = newPosition;
-  selectedReports.value = []; // Limpiar selección al cambiar de página
-  await get_reports(); // Vuelve a cargar los datos con el nuevo límite y posición
 };
+const removeSolped = (index) => { filters.value.solped.splice(index, 1); };
 
-const isAllSelected = computed(() => {
-  return report_list.value.length > 0 && selectedReports.value.length === report_list.value.length;
-});
-
-const toggleSelectAll = (event) => {
-  if (event.target.checked) {
-    selectedReports.value = report_list.value.map(report => report.id);
-  } else {
+const changePage = (newPosition) => {
+    position.value = newPosition;
     selectedReports.value = [];
-  }
 };
 
-const limpiarSeleccion = () => {
-  selectedReports.value = [];
+const isAllSelected = computed(() =>
+    report_list.value.length > 0 && selectedReports.value.length === report_list.value.length
+);
+const toggleSelectAll = (event) => {
+    selectedReports.value = event.target.checked ? report_list.value.map(r => r.id) : [];
 };
+const limpiarSeleccion = () => { selectedReports.value = []; };
 
-const descargarPDFsMasivo = async () => {
-  if (selectedReports.value.length === 0) {
-    return;
-  }
-  
-  try {
-    const response = await axios.post(
-      `${apiUrl}/reports/generate_multiple_reports_acesco`,
-      {
-        report_ids: selectedReports.value,
-      },
-      {
-        headers: {
-          Accept: "application/json",
-          Authorization: `Bearer ${token}`
-        },
-        responseType: "blob",
-      }
-    );
-    
-    if (response.status === 200) {
-      const url = window.URL.createObjectURL(new Blob([response.data], { type: "application/zip" }));
-      const link = document.createElement("a");
-      link.href = url;
-      const fecha = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
-      link.setAttribute("download", `reportes_acesco_multiples_${fecha}.zip`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      selectedReports.value = [];
-    }
-  } catch (error) {
-    console.error('Error al generar PDFs masivos:', error);
-    modalErrorInstance.value.show();
-    errorMsg.value = error.response?.data?.message || "Error al generar los PDFs";
-    if (error.response?.status === 401) {
-      token_status.value = error.response.status;
-      errorMsg.value = "El token ha expirado.";
-    } else if (error.response?.status === 403) {
-      token_status.value = error.response.status;
-      errorMsg.value = error.response.data.detail;
-    }
-  }
-};
-const generar_pdf = async (report_id) => {
-    try {
-        if (!token) {
-            router.push('/'); // Redirigir al login si no hay token
-        }
-        const response = await axios.post(
-            `${apiUrl}/reports/generate_report_acesco`,
-            {
-                report_id: report_id,
-                flag: true,
-            },
-            {
-                headers: {
-                    Accept: "application/json",
-                    Authorization: `Bearer ${token}`
-                },
-                responseType: "blob",  // Indicar que esperamos un archivo binario
-            }
-        );
-        if (response.status === 200) {
-            // Crear una URL para el blob
-            const url = window.URL.createObjectURL(new Blob([response.data], { type: "application/pdf" }));
-            // Crear un enlace temporal para descargar el archivo
-            const link = document.createElement("a");
-            link.href = url;
-            link.setAttribute("download", `reporte_${report_id}.pdf`);  // Definir el nombre del archivo
-            document.body.appendChild(link);
-            link.click();  // Ejecutar el click para descargar el archivo
-            document.body.removeChild(link);  // Limpiar el DOM
-        }
-    } catch (error) {
-        console.error('Error al generar pdf:', error);
-        modalErrorInstance.value.show();
-        errorMsg.value = error.response.data.message;
-        if (error.response.status === 401) {
-          token_status.value = error.response.status
-          errorMsg.value = "El token ha expirado.";
-        } else if (error.response.status === 403) {
-          token_status.value = error.response.status
-          errorMsg.value = error.response.data.detail;
-        }
-    }
-};
-const applyFilters = async () => {
-  position.value = 1;
-  await get_reports();
-};
-const limpiarFiltros = async () => {
-  filters.value.om = "";
-  filters.value.solped = [];
-  filters.value.buy_order = "";
-  filters.value.client_id = "";
-  filters.value.start_date = "";
-  filters.value.end_date = "";
-  position.value = 1;
-  await get_reports();
-};
-const get_clients = async () => {
-  try {
-    const responseList = await axios.post(
-        `${apiUrl}/params/get_clients`, {},
+const generar_pdf = (id) => {
+    generateReport(
+        { reportId: id, flag: true },
         {
-            headers: {
-                Accept: "application/json",
-                Authorization: `Bearer ${token}`
+            onSuccess: (response) => {
+                const url = window.URL.createObjectURL(new Blob([response.data], { type: "application/pdf" }));
+                const link = document.createElement("a");
+                link.href = url;
+                link.setAttribute("download", `reporte_${id}.pdf`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            },
+            onError: (err) => {
+                errorMsg.value = err.response?.data?.message || "Error al generar el PDF";
+                token_status.value = err.response?.status || 0;
+                modalErrorInstance.value.show();
             }
         }
     );
+};
 
-    if (responseList.status === 200) {
-        msg.value = responseList.data.message;
-        client_list.value = responseList.data.data;
-    }
-
-  } catch (error) {
-      console.error('Error al generar pdf:', error);
-      modalErrorInstance.value.show();
-      errorMsg.value = error.response.data.message;
-      if (error.response.status === 401) {
-        token_status.value = error.response.status
-        errorMsg.value = error.response.data.detail;
-      } else if (error.response.status === 403) {
-        token_status.value = error.response.status
-        errorMsg.value = error.response.data.detail;
-      }
-  }
-};
-// Función para manejar el cierre de sesión
-function logout() {
-  localStorage.clear();
-  router.push('/'); // Redirigir al login
-};
-function redirigir_dashboard() {
-  router.push('/dashboard'); // Redirigir al dashboard
-}
-const modalConfirm = async (id_reporte) => {
-  pregunta.value = "¿Seguro desea eliminar el reporte: "
-  modalInstancePregunta.value.show();
-  report_id.value = id_reporte;
-};
-const cambiarEstado = async () => {
-  try {
-      const response = await axios.post(
-          `${apiUrl}/reports/change_status_report`, 
-          {
-            report_id: report_id.value
-          },
-          {
-            headers: {
-                Accept: "application/json",
-                Authorization: `Bearer ${token}`
+const descargarPDFsMasivo = () => {
+    if (selectedReports.value.length === 0) return;
+    generateMultiple(
+        selectedReports.value,
+        {
+            onSuccess: (response) => {
+                const url = window.URL.createObjectURL(new Blob([response.data], { type: "application/zip" }));
+                const link = document.createElement("a");
+                link.href = url;
+                const fecha = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+                link.setAttribute("download", `reportes_acesco_multiples_${fecha}.zip`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                selectedReports.value = [];
+            },
+            onError: (err) => {
+                errorMsg.value = err.response?.data?.message || "Error al generar los PDFs";
+                token_status.value = err.response?.status || 0;
+                modalErrorInstance.value.show();
             }
-          }
-      );
-      modalInstancePregunta.value.hide();
-      if (response.status === 200) {
-          msg.value = response.data.message;
-          modalInstanceExito.value.show();
-          await get_reports();
-      }
-  } catch (error) {
-      console.error('Error al cargar los datos:', error);
-      modalErrorInstance.value.show();
-      errorMsg.value = error.response.data.message;
-      if (error.response.status === 401) {
-        token_status.value = error.response.status
-        errorMsg.value = error.response.data.detail;
-      } else if (error.response.status === 403) {
-        token_status.value = error.response.status
-        errorMsg.value = error.response.data.detail;
-      }
-  }
-}
+        }
+    );
+};
 
-// Código que se ejecuta al montar el componente
+const applyFilters = () => { position.value = 1; };
+const limpiarFiltros = () => {
+    filters.value = { om: '', solped: [], buy_order: '', client_id: '', start_date: '', end_date: '' };
+    position.value = 1;
+};
+const get_clients = () => {};
+
+const modalConfirm = (id_reporte) => {
+    pregunta.value = "¿Seguro desea eliminar el reporte: ";
+    modalInstancePregunta.value.show();
+    report_id.value = id_reporte;
+};
+
+const cambiarEstado = () => {
+    changeStatus(
+        report_id.value,
+        {
+            onSuccess: (response) => {
+                modalInstancePregunta.value.hide();
+                msg.value = response.data.message;
+                modalInstanceExito.value.show();
+            },
+            onError: (err) => {
+                errorMsg.value = err.response?.data?.message || 'Error';
+                token_status.value = err.response?.status || 0;
+                if (err.response?.status === 401) errorMsg.value = err.response.data.detail;
+                else if (err.response?.status === 403) errorMsg.value = err.response.data.detail;
+                modalErrorInstance.value.show();
+            }
+        }
+    );
+};
+
+function logout() { auth.clearSession(); router.push('/'); };
+function redirigir_dashboard() { router.push('/dashboard'); }
+
 onMounted(() => {
     modalInstanceExito.value = new Modal(exitoModal);
     modalErrorInstance.value = new Modal(errorModal);
     modalInstancePregunta.value = new Modal(preguntaModal);
-    if (!token) {
-        router.push('/'); // Redirigir al login si no hay token
-    }
-    // Cargar los datos para los select inputs cuando se monta el componente
-    get_reports();
 });
 </script>
 

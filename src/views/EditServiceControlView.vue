@@ -1,4 +1,4 @@
-<template>
+﻿<template>
     <LayoutView>
         <div class="container-header">
             <button type="button" class="btn-volver" @click="volver">← Volver</button>
@@ -200,28 +200,23 @@
 </template>
 
 <script setup>
-import apiUrl from "../../config.js";
-import { ref, onMounted, readonly } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import axios from 'axios';
 import LayoutView from '../views/Layouts/LayoutView.vue';
 import { Modal } from 'bootstrap';
+import { useAuthStore } from '../stores/auth.js';
+import {
+    useParamClients, useParamLinesByClient, useParamUsersByClient,
+    useParamServiceStatuses, useParamReportStatuses, useParamComponents,
+} from '../composables/useParams.js';
+import { useServiceControl, useUpdateServiceControl } from '../composables/useServiceControl.js';
 
-const token = localStorage.getItem('token');
-const user_id = localStorage.getItem('user_id');
+const auth = useAuthStore();
 const router = useRouter();
 const route = useRoute();
 const record_id = route.params.id;
 
-// Listas desplegables
-const client_list = ref([]);
-const line_list = ref([]);
-const person_list = ref([]);
-const service_status_list = ref([]);
-const report_status_list = ref([]);
-const component_list = ref([]);
-
-// Campos del formulario
+// ── Campos del formulario ─────────────────────────────────────────────────────
 const fecha = ref('');
 const cliente = ref('');
 const linea = ref('');
@@ -245,179 +240,126 @@ const factura = ref('');
 const fecha_facturacion = ref('');
 const nota = ref('');
 
-// Control UI
+// ── Control UI ────────────────────────────────────────────────────────────────
 const isLoading = ref(false);
 const isLoadingData = ref(true);
 const msg = ref('');
 const errorMsg = ref('');
-const token_status = ref(0);
 const modalInstance = ref(null);
 const modalErrorInstance = ref(null);
 
-const cargarDatos = async () => {
-    try {
-        const [resRecord, resClients, resServiceStatus, resReportStatus, resComponents] = await Promise.all([
-            axios.post(`${apiUrl}/service_control/get`, { record_id: parseInt(record_id) },
-                { headers: { Accept: "application/json", Authorization: `Bearer ${token}` } }),
-            axios.post(`${apiUrl}/params/get_clients`, {},
-                { headers: { Accept: "application/json", Authorization: `Bearer ${token}` } }),
-            axios.post(`${apiUrl}/params/get_service_statuses`, {},
-                { headers: { Accept: "application/json", Authorization: `Bearer ${token}` } }),
-            axios.post(`${apiUrl}/params/get_report_statuses`, {},
-                { headers: { Accept: "application/json", Authorization: `Bearer ${token}` } }),
-            axios.post(`${apiUrl}/params/get_components`, {},
-                { headers: { Accept: "application/json", Authorization: `Bearer ${token}` } }),
-        ]);
+// ── Queries de parámetros ─────────────────────────────────────────────────────
+const { data: clientsParamData } = useParamClients();
+const client_list = computed(() => clientsParamData.value ?? []);
 
-        client_list.value = resClients.data.data || [];
-        service_status_list.value = resServiceStatus.data.data || [];
-        report_status_list.value = resReportStatus.data.data || [];
-        component_list.value = resComponents.data.data || [];
+const { data: linesData } = useParamLinesByClient(cliente);
+const line_list = computed(() => linesData.value ?? []);
 
-        const d = resRecord.data.data;
-        fecha.value = d.activity_date;
-        cliente.value = d.client_id;
-        hes.value = d.hes || '';
-        descripcion.value = d.description || '';
-        informacion.value = d.information || '';
-        orden_servicio.value = d.service_order || '';
-        cotizacion.value = d.quotation || '';
-        componente.value = d.component;
-        cantidad_componentes.value = d.component_quantity || 0;
-        valor.value = d.value || 0;
-        solped.value = d.solped || '';
-        oc.value = d.oc || '';
-        posicion.value = d.position || '';
-        estado.value = d.service_status;
-        informe.value = d.report_status;
-        consecutivo.value = d.consecutive || '';
-        factura.value = d.invoice || '';
-        fecha_facturacion.value = d.invoice_date || '';
-        nota.value = d.note || '';
+const { data: personsData } = useParamUsersByClient(cliente);
+const person_list = computed(() => personsData.value ?? []);
 
-        // Cargar líneas y responsables del cliente
-        const [resLineas, resPersonas] = await Promise.all([
-            axios.post(`${apiUrl}/params/get_lines_by_client`, { client: d.client_id },
-                { headers: { Accept: "application/json", Authorization: `Bearer ${token}` } }),
-            axios.post(`${apiUrl}/params/get_users_by_client`, { client: d.client_id },
-                { headers: { Accept: "application/json", Authorization: `Bearer ${token}` } }),
-        ]);
-        line_list.value = resLineas.data.data || [];
-        person_list.value = resPersonas.data.data || [];
-        linea.value = d.client_line_id;
-        responsable.value = d.responsible_id;
-        gestor.value = d.gestor || '';
+const { data: serviceStatusData } = useParamServiceStatuses();
+const service_status_list = computed(() => serviceStatusData.value ?? []);
 
-    } catch (error) {
-        console.error('Error al cargar datos:', error);
-        errorMsg.value = error.response?.data?.message || 'Error al cargar los datos';
-        if (error.response?.status === 401) {
-            token_status.value = 401;
-            errorMsg.value = error.response.data.detail;
-        } else if (error.response?.status === 403) {
-            token_status.value = 403;
-            errorMsg.value = error.response.data.detail;
-        }
-        modalErrorInstance.value.show();
-    } finally {
-        isLoadingData.value = false;
+const { data: reportStatusData } = useParamReportStatuses();
+const report_status_list = computed(() => reportStatusData.value ?? []);
+
+const { data: componentsData } = useParamComponents();
+const component_list = computed(() => componentsData.value ?? []);
+
+// ── Carga datos del registro ──────────────────────────────────────────────────
+const recordIdRef = computed(() => record_id);
+const { data: recordData } = useServiceControl(recordIdRef);
+
+watch(recordData, (val) => {
+    if (!val) return;
+    fecha.value = val.activity_date;
+    cliente.value = val.client_id;
+    hes.value = val.hes || '';
+    descripcion.value = val.description || '';
+    informacion.value = val.information || '';
+    orden_servicio.value = val.service_order || '';
+    cotizacion.value = val.quotation || '';
+    componente.value = val.component;
+    cantidad_componentes.value = val.component_quantity || 0;
+    valor.value = val.value || 0;
+    solped.value = val.solped || '';
+    oc.value = val.oc || '';
+    posicion.value = val.position || '';
+    estado.value = val.service_status;
+    informe.value = val.report_status;
+    consecutivo.value = val.consecutive || '';
+    factura.value = val.invoice || '';
+    fecha_facturacion.value = val.invoice_date || '';
+    nota.value = val.note || '';
+    linea.value = val.client_line_id;
+    responsable.value = val.responsible_id;
+    gestor.value = val.gestor || '';
+    isLoadingData.value = false;
+});
+
+// ── Mutations ─────────────────────────────────────────────────────────────────
+const { mutate: updateServiceControlMutate } = useUpdateServiceControl();
+
+const guardarCambios = () => {
+    isLoading.value = true;
+    const [year, month, day] = fecha.value.split('-');
+    const fechaFormateada = `${day}-${month}-${year}`;
+    let fechaFacturacionFormateada = null;
+    if (fecha_facturacion.value) {
+        const [yf, mf, df] = fecha_facturacion.value.split('-');
+        fechaFacturacionFormateada = `${df}-${mf}-${yf}`;
     }
-};
-
-const onClienteChange = async () => {
-    try {
-        linea.value = '';
-        responsable.value = '';
-        line_list.value = [];
-        person_list.value = [];
-
-        const [resLineas, resPersonas] = await Promise.all([
-            axios.post(`${apiUrl}/params/get_lines_by_client`, { client: cliente.value },
-                { headers: { Accept: "application/json", Authorization: `Bearer ${token}` } }),
-            axios.post(`${apiUrl}/params/get_users_by_client`, { client: cliente.value },
-                { headers: { Accept: "application/json", Authorization: `Bearer ${token}` } }),
-        ]);
-        line_list.value = resLineas.data.data || [];
-        person_list.value = resPersonas.data.data || [];
-    } catch (error) {
-        console.error('Error al cargar datos del cliente:', error);
-    }
-};
-
-const guardarCambios = async () => {
-    try {
-        if (!token) { router.push('/'); return; }
-        isLoading.value = true;
-
-        const [year, month, day] = fecha.value.split("-");
-        const fechaFormateada = `${day}-${month}-${year}`;
-
-        let fechaFacturacionFormateada = null;
-        if (fecha_facturacion.value) {
-            const [yf, mf, df] = fecha_facturacion.value.split("-");
-            fechaFacturacionFormateada = `${df}-${mf}-${yf}`;
-        }
-
-        const response = await axios.post(
-            `${apiUrl}/service_control/update`,
-            {
-                record_id: parseInt(record_id),
-                activity_date: fechaFormateada,
-                client_id: cliente.value,
-                client_line_id: linea.value,
-                hes: hes.value,
-                responsible_id: responsable.value,
-                gestor: gestor.value,
-                description: descripcion.value,
-                information: informacion.value,
-                service_order: orden_servicio.value,
-                quotation: cotizacion.value,
-                component: componente.value,
-                component_quantity: cantidad_componentes.value,
-                value: valor.value,
-                solped: solped.value,
-                oc: oc.value,
-                position: posicion.value,
-                service_status: estado.value,
-                report_status: informe.value,
-                consecutive: consecutivo.value || null,
-                invoice: factura.value || null,
-                invoice_date: fechaFacturacionFormateada,
-                note: nota.value,
-                user_id: user_id,
+    updateServiceControlMutate(
+        {
+            record_id: parseInt(record_id),
+            activity_date: fechaFormateada,
+            client_id: cliente.value,
+            client_line_id: linea.value,
+            hes: hes.value,
+            responsible_id: responsable.value,
+            gestor: gestor.value,
+            description: descripcion.value,
+            information: informacion.value,
+            service_order: orden_servicio.value,
+            quotation: cotizacion.value,
+            component: componente.value,
+            component_quantity: cantidad_componentes.value,
+            value: valor.value,
+            solped: solped.value,
+            oc: oc.value,
+            position: posicion.value,
+            service_status: estado.value,
+            report_status: informe.value,
+            consecutive: consecutivo.value || null,
+            invoice: factura.value || null,
+            invoice_date: fechaFacturacionFormateada,
+            note: nota.value,
+            user_id: auth.userId,
+        },
+        {
+            onSuccess: (response) => {
+                msg.value = response.data.message;
+                modalInstance.value.show();
             },
-            { headers: { Accept: "application/json", Authorization: `Bearer ${token}` } }
-        );
-
-        if (response.status === 200) {
-            msg.value = response.data.message;
-            modalInstance.value.show();
+            onError: (err) => {
+                errorMsg.value = err.response?.data?.message || 'Error inesperado';
+                modalErrorInstance.value.show();
+            },
+            onSettled: () => { isLoading.value = false; },
         }
-    } catch (error) {
-        console.error('Error al guardar cambios:', error);
-        errorMsg.value = error.response?.data?.message || 'Error inesperado';
-        if (error.response?.status === 401) {
-            token_status.value = 401;
-            errorMsg.value = error.response.data.detail;
-        } else if (error.response?.status === 403) {
-            token_status.value = 403;
-            errorMsg.value = error.response.data.detail;
-        }
-        modalErrorInstance.value.show();
-    } finally {
-        isLoading.value = false;
-    }
+    );
 };
+
+const onClienteChange = () => {};
 
 function volver() { router.push('/ver-lista-control-servicio'); }
-function logout() { localStorage.clear(); router.push('/'); }
+function logout() { auth.clearSession(); router.push('/'); }
 function redirigir_dashboard() { router.push('/dashboard'); }
 
 onMounted(() => {
     modalInstance.value = new Modal(exitoModal);
     modalErrorInstance.value = new Modal(errorModal);
-    if (!token) { router.push('/'); return; }
-    cargarDatos();
 });
 </script>
 

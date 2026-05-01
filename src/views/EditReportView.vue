@@ -1,4 +1,4 @@
-<template>
+﻿<template>
     <LayoutView>
         <div class="container-header">
             <button type="button" class="btn-volver" @click="volver">
@@ -238,26 +238,27 @@
 </template>
 
 <script setup>
-import apiUrl from "../../config.js";
-import { ref, onMounted } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import axios from 'axios';
 import LayoutView from '../views/Layouts/LayoutView.vue';
 import { Modal } from 'bootstrap';
+import { useAuthStore } from '../stores/auth.js';
+import {
+    useParamClients, useParamLinesByClient, useParamUsersByClient,
+    useParamTypeService, useParamTypeEquipments, useParamTasksByEquipment,
+} from '../composables/useParams.js';
+import { useEditReport, useGenerateReport } from '../composables/useReports.js';
+import { reportsApi } from '../api/reports.js';
+import { useMutation } from '@tanstack/vue-query';
 
-// Variables reactivas para los datos
-const client_list = ref([]);
-const line_list = ref([]);
-const person_list = ref([]);
-const servicios_list = ref([]);
-const servicios_seleccionados = ref([]);
-const equipos_list = ref([]);
+const auth = useAuthStore();
+const router = useRouter();
+
+// ── Estado ────────────────────────────────────────────────────────────────────
 const tasks_list = ref([]);
 const tasks = ref([]);
 const imagenes = ref([]);
-const data_report = ref({});
 const fecha_actividad = ref('');
-const fecha_actividad_formateada = ref('');
 const cliente_seleccionado = ref(null);
 const linea_seleccionada = ref(null);
 const persona_seleccionada = ref(null);
@@ -269,352 +270,161 @@ const tipo_equipo = ref('');
 const nombre_equipo = ref('');
 const descripcion_servicio = ref('');
 const informacion = ref('');
-const user_id = localStorage.getItem('user_id');
-const token = localStorage.getItem('token');
+const servicios_seleccionados = ref([]);
 const modalInstance = ref(null);
+const modalErrorInstance = ref(null);
 const report_id = ref('');
 const msg = ref('');
 const error = ref('');
-const modalErrorInstance = ref(null);
 const errorMsg = ref('');
-const token_status = ref(0);
 const isLoading = ref(false);
 
-// Acceder al enrutador
-const router = useRouter();
+// ── Queries de parámetros ─────────────────────────────────────────────────────
+const { data: clientsParamData } = useParamClients();
+const client_list = computed(() => clientsParamData.value ?? []);
 
-const editReport = async () => {
-    try {
-        if (!token) {
-            router.push('/'); // Redirigir al login si no hay token
-        }
+const { data: serviciosData } = useParamTypeService();
+const servicios_list = computed(() => serviciosData.value ?? []);
 
-        isLoading.value = true; // Activar la espera
+const { data: equiposData } = useParamTypeEquipments();
+const equipos_list = computed(() => equiposData.value ?? []);
 
-        const [year, month, day] = fecha_actividad.value.split("-");
+const { data: linesData } = useParamLinesByClient(cliente_seleccionado);
+const line_list = computed(() => linesData.value ?? []);
 
-        fecha_actividad_formateada.value = `${day}-${month}-${year}`
+const { data: personsData } = useParamUsersByClient(cliente_seleccionado);
+const person_list = computed(() => personsData.value ?? []);
 
-        tasks.value = tasks_list.value.map((task) => ({
-            task_id: task.id,
-            positive: task.positive,
-            negative: task.positive === 1 ? 0 : 1,
-            description: task.description,
+const { data: rawTasksData } = useParamTasksByEquipment(tipo_equipo);
+watch([rawTasksData, tipo_equipo], ([rawTasks, tipoEquip]) => {
+    if (tipoEquip === 5) { tasks_list.value = []; return; }
+    if (rawTasks?.length && !tasks_list.value.some(t => t.id === rawTasks[0]?.id)) {
+        tasks_list.value = rawTasks.map(task => ({
+            ...task, positive: task.positive ?? 1, description: task.description ?? '',
         }));
+    }
+});
 
-        const response = await axios.post(
-            `${apiUrl}/reports/edit_report`,
-            {
-                report_id: report_id.value,
-                activity_date: fecha_actividad_formateada.value,
-                client_id: cliente_seleccionado.value,
-                client_line_id: linea_seleccionada.value,
-                person_receives: persona_seleccionada.value,
-                om: om.value,
-                solped: solped.value,
-                buy_order: orden_compra.value,
-                position: posicion.value,
-                information: informacion.value,                
-                type_service: servicios_seleccionados.value,
-                equipment_type_id: tipo_equipo.value,
-                equipment_name: nombre_equipo.value,
-                service_description: descripcion_servicio.value,
-                task_list: tasks.value,
-                files: imagenes.value,
-                user_id: user_id,
+// ── Carga datos del reporte (flag=false) ──────────────────────────────────────
+const { mutate: loadReportData } = useMutation({
+    mutationFn: (id) => reportsApi.getData(id),
+});
+
+// ── Mutations ─────────────────────────────────────────────────────────────────
+const { mutate: editReportMutate } = useEditReport();
+const { mutate: generateReportMutate } = useGenerateReport();
+
+const editReport = () => {
+    isLoading.value = true;
+    const [year, month, day] = fecha_actividad.value.split('-');
+    const fecha_formateada = `${day}-${month}-${year}`;
+    tasks.value = tasks_list.value.map((task) => ({
+        task_id: task.id,
+        positive: task.positive,
+        negative: task.positive === 1 ? 0 : 1,
+        description: task.description,
+    }));
+    editReportMutate(
+        {
+            report_id: report_id.value,
+            activity_date: fecha_formateada,
+            client_id: cliente_seleccionado.value,
+            client_line_id: linea_seleccionada.value,
+            person_receives: persona_seleccionada.value,
+            om: om.value,
+            solped: solped.value,
+            buy_order: orden_compra.value,
+            position: posicion.value,
+            information: informacion.value,
+            type_service: servicios_seleccionados.value,
+            equipment_type_id: tipo_equipo.value,
+            equipment_name: nombre_equipo.value,
+            service_description: descripcion_servicio.value,
+            task_list: tasks.value,
+            files: imagenes.value,
+            user_id: auth.userId,
+        },
+        {
+            onSuccess: (response) => {
+                msg.value = response.data.message;
+                report_id.value = response.data.data;
+                modalInstance.value.show();
             },
-            {
-                headers: {
-                    Accept: "application/json",
-                    Authorization: `Bearer ${token}`
-                }
-            }
-        );
-        if (response.status === 201) {
-            msg.value = response.data.message
-            report_id.value = response.data.data
-            modalInstance.value.show();                    
-        }else if (response.status === 200) {
-            error.value = response.data.message
-        }
-    } catch (error) {
-        console.error('Error al editar reporte:', error);
-        modalErrorInstance.value.show();
-        errorMsg.value = error.response.data.message;
-        if (error.response.status === 401) {
-            token_status.value = error.response.status
-            errorMsg.value = error.response.data.detail;
-        } else if (error.response.status === 403) {
-            token_status.value = error.response.status
-            errorMsg.value = error.response.data.detail;
-        }
-    } finally {
-        isLoading.value = false; // Desactivar la espera
-    }
-};
-const generar_pdf = async () => {
-    try {
-        if (!token) {
-            router.push('/'); // Redirigir al login si no hay token
-        }
-        const response = await axios.post(
-            `${apiUrl}/reports/generate_report`,
-            {
-                report_id: report_id.value,
-                flag: true
+            onError: (err) => {
+                errorMsg.value = err.response?.data?.message || 'Error al editar reporte';
+                modalErrorInstance.value.show();
             },
-            {
-                headers: {
-                    Accept: "application/json",
-                    Authorization: `Bearer ${token}`
-                },
-                responseType: "blob",  // Indicar que esperamos un archivo binario
-            }
-        );
-        if (response.status === 200) {
-            // Crear una URL para el blob
-            const url = window.URL.createObjectURL(new Blob([response.data], { type: "application/pdf" }));
-            // Crear un enlace temporal para descargar el archivo
-            const link = document.createElement("a");
-            link.href = url;
-            link.setAttribute("download", `reporte_${report_id.value}.pdf`);  // Definir el nombre del archivo
-            document.body.appendChild(link);
-            link.click();  // Ejecutar el click para descargar el archivo
-            document.body.removeChild(link);  // Limpiar el DOM
+            onSettled: () => { isLoading.value = false; },
         }
-    } catch (error) {
-        console.error('Error al generar pdf:', error);
-        modalErrorInstance.value.show();
-        errorMsg.value = error.response.data.message;
-        if (error.response.status === 401) {
-            token_status.value = error.response.status
-            errorMsg.value = "El token ha expirado.";
-        } else if (error.response.status === 403) {
-            token_status.value = error.response.status
-            errorMsg.value = error.response.data.detail;
-        }
-    }
+    );
 };
-const cargarDatos = async () => {
-    try {
-        const response_report = await axios.post(
-            `${apiUrl}/reports/generate_report`,
-            {
-                report_id: report_id.value,
-                flag: false
+
+const generar_pdf = () => {
+    generateReportMutate(
+        { reportId: report_id.value, flag: true },
+        {
+            onSuccess: (response) => {
+                const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+                const link = document.createElement('a');
+                link.href = url;
+                link.setAttribute('download', `reporte_${report_id.value}.pdf`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
             },
-            {
-                headers: {
-                    Accept: "application/json",
-                    Authorization: `Bearer ${token}`
-                },
-            }
-        );
-        
-        if (response_report.status === 200) {
-            msg.value = response_report.data.message;
-            data_report.value = response_report.data.data;
-            fecha_actividad.value = data_report.value.activity_date;
-            om.value = data_report.value.om;
-            solped.value = data_report.value.solped;
-            orden_compra.value = data_report.value.buy_order;
-            posicion.value = data_report.value.position;
-            cliente_seleccionado.value = data_report.value.client_id;
-            linea_seleccionada.value = data_report.value.client_line_id;
-            persona_seleccionada.value = data_report.value.person_receive_id;
-            servicios_seleccionados.value = data_report.value.type_service.map((servicio)=>servicio.id);
-            nombre_equipo.value = data_report.value.equipment_name;
-            descripcion_servicio.value = data_report.value.service_description;
-            informacion.value = data_report.value.information;
-            tipo_equipo.value = data_report.value.equipment_type_id;
-            tasks_list.value = data_report.value.tasks;
-            imagenes.value = data_report.value.files.map(file => ({
-                img: file.path,
-                description: file.description,
-            }));
+            onError: (err) => {
+                errorMsg.value = err.response?.data?.message || 'Error al generar PDF';
+                modalErrorInstance.value.show();
+            },
         }
-
-        const response = await axios.post(
-            `${apiUrl}/params/get_clients`, {},
-            {
-                headers: {
-                    Accept: "application/json",
-                    Authorization: `Bearer ${token}`
-                }
-            }
-        );
-
-        if (response.status === 200) {
-            msg.value = response.data.message;
-            client_list.value = response.data.data;
-        }
-
-        const responseServices = await axios.post(
-            `${apiUrl}/params/get_type_service`, {},
-            {
-                headers: {
-                    Accept: "application/json",
-                    Authorization: `Bearer ${token}`
-                }
-            }
-        );
-        if (responseServices.status === 200) {
-            msg.value = responseServices.data.message;
-            servicios_list.value = responseServices.data.data;
-        }
-
-        const responseEquipments = await axios.post(
-            `${apiUrl}/params/get_type_equipments`, {},
-            {
-                headers: {
-                    Accept: "application/json",
-                    Authorization: `Bearer ${token}`
-                }
-            }
-        );
-        if (responseEquipments.status === 200) {
-            msg.value = responseEquipments.data.message;
-            equipos_list.value = responseEquipments.data.data;
-        }
-
-        onClienteChange();
-
-    } catch (error) {
-        console.error('Error al cargar los datos:', error);
-        modalErrorInstance.value.show();
-        errorMsg.value = error.response.data.message;
-        if (error.response.status === 401) {
-            token_status.value = error.response.status
-            errorMsg.value = error.response.data.detail;
-        } else if (error.response.status === 403) {
-            token_status.value = error.response.status
-            errorMsg.value = error.response.data.detail;
-        }
-    }
-
+    );
 };
-const onClienteChange = async () => {
-    try {
-        // Carga de líneas asociadas al cliente seleccionado
-        const responseLineas = await axios.post(
-            `${apiUrl}/params/get_lines_by_client`, 
-            { client: cliente_seleccionado.value },
-            {
-                headers: {
-                    Accept: "application/json",
-                    Authorization: `Bearer ${token}`,
-                }
-            }
-        );
-        line_list.value = responseLineas.data.data || [];
 
-        // Carga de personas asociadas al cliente seleccionado
-        const responsePersonas = await axios.post(
-            `${apiUrl}/params/get_users_by_client`, 
-            { client: cliente_seleccionado.value },
-            {
-                headers: {
-                    Accept: "application/json",
-                    Authorization: `Bearer ${token}`,
-                }
-            }
-        );
-        person_list.value = responsePersonas.data.data || [];
-
-    } catch (error) {
-        console.error('Error al cargar datos dinámicos:', error);
-        modalErrorInstance.value.show();
-        errorMsg.value = error.response.data.message;
-        if (error.response.status === 401) {
-            token_status.value = error.response.status
-            errorMsg.value = error.response.data.detail;
-        } else if (error.response.status === 403) {
-            token_status.value = error.response.status
-            errorMsg.value = error.response.data.detail;
-        }
-    }
-};
-const onChangeTasks = async () => {
-    try {
-        if (tipo_equipo.value === 5){
-            tasks_list.value = [];
-            return
-        }
-        const response = await axios.post(
-            `${apiUrl}/params/get_tasks_by_equipment`, 
-            { equipment: tipo_equipo.value },
-            {
-                headers: {
-                    Accept: "application/json",
-                    Authorization: `Bearer ${token}`,
-                }
-            }
-        );
-        tasks_list.value = response.data.data.map(task => ({
-            ...task, // Conservamos los campos originales
-            positive: 1, // Por defecto, el radio "Sí" está seleccionado
-            description: "", // Por defecto, la descripción es vacía
-        }));
-
-    } catch (error) {
-        console.error('Error al cargar datos dinámicos:', error);
-        modalErrorInstance.value.show();
-        errorMsg.value = error.response.data.message;
-        if (error.response.status === 401) {
-            token_status.value = error.response.status
-            errorMsg.value = error.response.data.detail;
-        } else if (error.response.status === 403) {
-            token_status.value = error.response.status
-            errorMsg.value = error.response.data.detail;
-        }
-    }
-};
-const addImageInput = async () => {
-    // Agregamos un elemento vacío a la lista de imágenes
-    imagenes.value.push({ img: "", description: "" });
-};
-const removeImageInput = async (index) => {
-    // Eliminamos una imagen de la lista
-    imagenes.value.splice(index, 1);
-};
-const handleImageChange = async (event, index) => {
-    const file = event.target.files[0]; // Obtenemos el archivo cargado
+const addImageInput = () => { imagenes.value.push({ img: '', description: '' }); };
+const removeImageInput = (index) => { imagenes.value.splice(index, 1); };
+const handleImageChange = (event, index) => {
+    const file = event.target.files[0];
     if (file) {
         const reader = new FileReader();
         reader.onload = () => {
-            // Actualizamos directamente el valor en el índice correspondiente
-            imagenes.value[index] = {
-                img: reader.result, // Base64 de la imagen
-                description: imagenes.value[index]?.description || "" // Mantener la descripción
-            };
+            imagenes.value[index] = { img: reader.result, description: imagenes.value[index]?.description || '' };
         };
         reader.readAsDataURL(file);
     }
 };
-const enlargeImage = async (path) => {
-    window.open(path, "_blank");
-};
-// Función para manejar el cierre de sesión
-function logout() {
-  localStorage.clear();
-  router.push('/'); // Redirigir al login
-}
-function redirigir_dashboard() {
-  router.push('/dashboard'); // Redirigir al dashboard
-};
-function volver() {
-  router.push('/reports'); // Redirigir a la lista de reportes
-};
-// Código que se ejecuta al montar el componente
+const enlargeImage = (path) => { window.open(path, '_blank'); };
+
+function logout() { auth.clearSession(); router.push('/'); }
+function redirigir_dashboard() { router.push('/dashboard'); }
+function volver() { router.push('/reports'); }
+
+const onClienteChange = () => {};
+const onChangeTasks = () => {};
+
 onMounted(() => {
     report_id.value = router.currentRoute.value.params.id;
     modalInstance.value = new Modal(exitoModal);
     modalErrorInstance.value = new Modal(errorModal);
-    if (!token) {
-        router.push('/'); // Redirigir al login si no hay token
-    }
-    // Cargar los datos para los select inputs cuando se monta el componente
-    cargarDatos();
+    loadReportData(report_id.value, {
+        onSuccess: (response) => {
+            const val = response.data.data;
+            fecha_actividad.value = val.activity_date;
+            om.value = val.om;
+            solped.value = val.solped;
+            orden_compra.value = val.buy_order;
+            posicion.value = val.position;
+            cliente_seleccionado.value = val.client_id;
+            linea_seleccionada.value = val.client_line_id;
+            persona_seleccionada.value = val.person_receive_id;
+            servicios_seleccionados.value = val.type_service.map(s => s.id);
+            nombre_equipo.value = val.equipment_name;
+            descripcion_servicio.value = val.service_description;
+            informacion.value = val.information;
+            tipo_equipo.value = val.equipment_type_id;
+            tasks_list.value = val.tasks;
+            imagenes.value = val.files.map(file => ({ img: file.path, description: file.description }));
+        },
+    });
 });
 </script>
 

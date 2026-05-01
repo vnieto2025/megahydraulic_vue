@@ -1,4 +1,4 @@
-<template>
+﻿<template>
     <LayoutView>
 
         <form @submit.prevent="guardarServicio">
@@ -195,28 +195,22 @@
 </template>
 
 <script setup>
-import apiUrl from "../../config.js";
-import { ref, onMounted, readonly } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import axios from 'axios';
 import LayoutView from '../views/Layouts/LayoutView.vue';
 import { Modal } from 'bootstrap';
+import { useAuthStore } from '../stores/auth.js';
+import {
+    useParamClients, useParamLinesByClient, useParamUsersByClient,
+    useParamServiceStatuses, useParamReportStatuses, useParamComponents,
+} from '../composables/useParams.js';
+import { useCreateServiceControl } from '../composables/useServiceControl.js';
 
-const token = localStorage.getItem('token');
-const user_id = localStorage.getItem('user_id');
+const auth = useAuthStore();
 const router = useRouter();
 
-// Listas desplegables
-const client_list = ref([]);
-const line_list = ref([]);
-const person_list = ref([]);
-const service_status_list = ref([]);
-const report_status_list = ref([]);
-const component_list = ref([]);
-
-// Campos del formulario
+// ── Campos del formulario ─────────────────────────────────────────────────────
 const fecha = ref('');
-const fecha_formateada = ref('');
 const cliente = ref('');
 const linea = ref('');
 const hes = ref('');
@@ -237,172 +231,103 @@ const informe = ref('');
 const consecutivo = ref('');
 const factura = ref(0);
 const fecha_facturacion = ref('');
-const fecha_facturacion_formateada = ref('');
 const nota = ref('');
 
-// Control UI
+// ── Control UI ────────────────────────────────────────────────────────────────
 const isLoading = ref(false);
 const msg = ref('');
 const errorMsg = ref('');
-const token_status = ref(0);
 const modalInstance = ref(null);
 const modalErrorInstance = ref(null);
 
-const guardarServicio = async () => {
-    try {
-        if (!token) { router.push('/'); return; }
-        isLoading.value = true;
+// ── Queries de parámetros ─────────────────────────────────────────────────────
+const { data: clientsParamData } = useParamClients();
+const client_list = computed(() => clientsParamData.value ?? []);
 
-        const [year, month, day] = fecha.value.split("-");
-        fecha_formateada.value = `${day}-${month}-${year}`;
+const { data: linesData } = useParamLinesByClient(cliente);
+const line_list = computed(() => linesData.value ?? []);
 
-        if (fecha_facturacion.value) {
-            const [year_f, month_f, day_f] = fecha_facturacion.value.split("-");
-            fecha_facturacion_formateada.value = `${day_f}-${month_f}-${year_f}`;
-        } else {
-            fecha_facturacion_formateada.value = null;
-        }
+const { data: personsData } = useParamUsersByClient(cliente);
+const person_list = computed(() => personsData.value ?? []);
 
-        const response = await axios.post(
-            `${apiUrl}/service_control/create`,
-            {
-                activity_date: fecha_formateada.value,
-                client_id: cliente.value,
-                client_line_id: linea.value,
-                hes: hes.value,
-                responsible_id: responsable.value,
-                gestor: gestor.value,
-                description: descripcion.value,
-                information: informacion.value,
-                service_order: orden_servicio.value,
-                quotation: cotizacion.value,
-                component: componente.value,
-                component_quantity: cantidad_componentes.value,
-                value: valor.value,
-                solped: solped.value,
-                oc: oc.value,
-                position: posicion.value,
-                service_status: estado.value,
-                report_status: informe.value,
-                consecutive: consecutivo.value || null,
-                invoice: factura.value || null,
-                invoice_date: fecha_facturacion_formateada.value || null,
-                note: nota.value,
-                user_id: user_id,
+const { data: serviceStatusData } = useParamServiceStatuses();
+const service_status_list = computed(() => serviceStatusData.value ?? []);
+
+const { data: reportStatusData } = useParamReportStatuses();
+const report_status_list = computed(() => reportStatusData.value ?? []);
+
+const { data: componentsData } = useParamComponents();
+const component_list = computed(() => componentsData.value ?? []);
+
+// ── Mutation ──────────────────────────────────────────────────────────────────
+const { mutate: createServiceControlMutate } = useCreateServiceControl();
+
+const guardarServicio = () => {
+    isLoading.value = true;
+    const [year, month, day] = fecha.value.split('-');
+    const fecha_formateada = `${day}-${month}-${year}`;
+    let fecha_facturacion_formateada = null;
+    if (fecha_facturacion.value) {
+        const [yf, mf, df] = fecha_facturacion.value.split('-');
+        fecha_facturacion_formateada = `${df}-${mf}-${yf}`;
+    }
+    createServiceControlMutate(
+        {
+            activity_date: fecha_formateada,
+            client_id: cliente.value,
+            client_line_id: linea.value,
+            hes: hes.value,
+            responsible_id: responsable.value,
+            gestor: gestor.value,
+            description: descripcion.value,
+            information: informacion.value,
+            service_order: orden_servicio.value,
+            quotation: cotizacion.value,
+            component: componente.value,
+            component_quantity: cantidad_componentes.value,
+            value: valor.value,
+            solped: solped.value,
+            oc: oc.value,
+            position: posicion.value,
+            service_status: estado.value,
+            report_status: informe.value,
+            consecutive: consecutivo.value || null,
+            invoice: factura.value || null,
+            invoice_date: fecha_facturacion_formateada,
+            note: nota.value,
+            user_id: auth.userId,
+        },
+        {
+            onSuccess: (response) => {
+                msg.value = response.data.message;
+                modalInstance.value.show();
             },
-            {
-                headers: {
-                    Accept: "application/json",
-                    Authorization: `Bearer ${token}`
-                }
-            }
-        );
-        if (response.status === 201) {
-            msg.value = response.data.message;
-            modalInstance.value.show();
+            onError: (err) => {
+                errorMsg.value = err.response?.data?.message || 'Error inesperado';
+                modalErrorInstance.value.show();
+            },
+            onSettled: () => { isLoading.value = false; },
         }
-    } catch (error) {
-        console.error('Error al guardar servicio:', error);
-        errorMsg.value = error.response?.data?.message || 'Error inesperado';
-        if (error.response?.status === 401) {
-            token_status.value = 401;
-            errorMsg.value = error.response.data.detail;
-        } else if (error.response?.status === 403) {
-            token_status.value = 403;
-            errorMsg.value = error.response.data.detail;
-        }
-        modalErrorInstance.value.show();
-    } finally {
-        isLoading.value = false;
-    }
+    );
 };
 
-const onClienteChange = async () => {
-    try {
-        linea.value = '';
-        responsable.value = '';
-        line_list.value = [];
-        person_list.value = [];
+const onClienteChange = () => {};
 
-        const [resLineas, resPersonas] = await Promise.all([
-            axios.post(`${apiUrl}/params/get_lines_by_client`, { client: cliente.value }, {
-                headers: { Accept: "application/json", Authorization: `Bearer ${token}` }
-            }),
-            axios.post(`${apiUrl}/params/get_users_by_client`, { client: cliente.value }, {
-                headers: { Accept: "application/json", Authorization: `Bearer ${token}` }
-            })
-        ]);
-        line_list.value = resLineas.data.data || [];
-        person_list.value = resPersonas.data.data || [];
-    } catch (error) {
-        console.error('Error al cargar datos del cliente:', error);
-        errorMsg.value = error.response?.data?.message || 'Error al cargar datos';
-        modalErrorInstance.value.show();
-    }
-};
-
-const cargarDatos = async () => {
-    try {
-        const [resClients, resServiceStatus, resReportStatus, resComponents] = await Promise.all([
-            axios.post(`${apiUrl}/params/get_clients`, {}, { headers: { Accept: "application/json", Authorization: `Bearer ${token}` } }),
-            axios.post(`${apiUrl}/params/get_service_statuses`, {}, { headers: { Accept: "application/json", Authorization: `Bearer ${token}` } }),
-            axios.post(`${apiUrl}/params/get_report_statuses`, {}, { headers: { Accept: "application/json", Authorization: `Bearer ${token}` } }),
-            axios.post(`${apiUrl}/params/get_components`, {}, { headers: { Accept: "application/json", Authorization: `Bearer ${token}` } }),
-        ]);
-        client_list.value = resClients.data.data || [];
-        service_status_list.value = resServiceStatus.data.data || [];
-        report_status_list.value = resReportStatus.data.data || [];
-        component_list.value = resComponents.data.data || [];
-    } catch (error) {
-        console.error('Error al cargar datos iniciales:', error);
-        errorMsg.value = error.response?.data?.message || 'Error al cargar datos';
-        if (error.response?.status === 401) {
-            token_status.value = 401;
-            errorMsg.value = error.response.data.detail;
-        }
-        modalErrorInstance.value.show();
-    }
-};
-
-function logout() {
-    localStorage.clear();
-    router.push('/');
-}
-function redirigir_dashboard() {
-    router.push('/dashboard');
-}
 function limpiarFormulario() {
-    fecha.value = '';
-    cliente.value = '';
-    linea.value = '';
-    hes.value = '';
-    responsable.value = '';
-    gestor.value = '';
-    descripcion.value = '';
-    informacion.value = '';
-    orden_servicio.value = '';
-    cotizacion.value = '';
-    componente.value = '';
-    cantidad_componentes.value = 0;
-    valor.value = 0;
-    solped.value = '';
-    oc.value = '';
-    posicion.value = '';
-    estado.value = '';
-    informe.value = '';
-    consecutivo.value = '';
-    factura.value = 0;
-    fecha_facturacion.value = '';
-    nota.value = '';
-    line_list.value = [];
-    person_list.value = [];
+    fecha.value = ''; cliente.value = ''; linea.value = ''; hes.value = '';
+    responsable.value = ''; gestor.value = ''; descripcion.value = ''; informacion.value = '';
+    orden_servicio.value = ''; cotizacion.value = ''; componente.value = '';
+    cantidad_componentes.value = 0; valor.value = 0; solped.value = ''; oc.value = '';
+    posicion.value = ''; estado.value = ''; informe.value = ''; consecutivo.value = '';
+    factura.value = 0; fecha_facturacion.value = ''; nota.value = '';
 }
+
+function logout() { auth.clearSession(); router.push('/'); }
+function redirigir_dashboard() { router.push('/dashboard'); }
 
 onMounted(() => {
     modalInstance.value = new Modal(exitoModal);
     modalErrorInstance.value = new Modal(errorModal);
-    if (!token) { router.push('/'); return; }
-    cargarDatos();
 });
 </script>
 

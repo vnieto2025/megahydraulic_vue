@@ -504,19 +504,28 @@
 </template>
 
 <script setup>
-import apiUrl from "../../config.js";
-import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue';
-import { useRouter } from "vue-router";
-import axios from 'axios';
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
+import { useRouter } from 'vue-router';
 import LayoutView from '../views/Layouts/LayoutView.vue';
-import ojo from "@/assets/icons/ojo.png";
-import desactivar from "@/assets/icons/trash.svg";
+import ojo from '@/assets/icons/ojo.png';
+import desactivar from '@/assets/icons/trash.svg';
 import { Modal } from 'bootstrap';
+import { useAuthStore } from '../stores/auth.js';
+import {
+    useParamClients, useParamLinesByClient, useParamUsersByClient,
+    useParamServiceStatuses, useParamReportStatuses,
+} from '../composables/useParams.js';
+import {
+    useServiceControlList, useUpdateInlineStatus,
+    useConvertToReport, useConvertMultiple, useChangeStatusServiceControl,
+} from '../composables/useServiceControl.js';
+import { serviceControlApi } from '../api/serviceControl.js';
+import { useMutation } from '@tanstack/vue-query';
 
-const token = localStorage.getItem('token');
-const user_type_id = localStorage.getItem('user_type_id');
+const auth = useAuthStore();
 const router = useRouter();
 
+// ── Filtros ───────────────────────────────────────────────────────────────────
 const filters = ref({
     start_date: '',
     end_date: '',
@@ -534,9 +543,42 @@ const filters = ref({
     invoice_date_end: ''
 });
 
+const limit = ref(50);
+const position = ref(1);
+
+// ── Payload reactivo ──────────────────────────────────────────────────────────
+const payload = computed(() => ({
+    limit: parseInt(limit.value),
+    position: position.value,
+    filters: filters.value,
+}));
+
+// ── Query principal ───────────────────────────────────────────────────────────
+const { data: scData, refetch: refetchRecords } = useServiceControlList(payload);
+const record_list = computed(() => scData.value?.registros ?? []);
+const total_paginas = computed(() => scData.value?.total_pag ?? 0);
+const total_registros = computed(() => scData.value?.total_registros ?? 0);
+const total_valor_formateado = computed(() => scData.value?.total_valor_formateado ?? '');
+
+// ── Estado UI ─────────────────────────────────────────────────────────────────
+const msg = ref('');
+const errorMsg = ref('');
+const record_id = ref(0);
+const convert_record_id = ref(0);
+const isConverting = ref(false);
+const selectedRecords = ref([]);
+const isConvertingMasivo = ref(false);
+const updatingStatus = ref({});
+const hesTimers = ref({});
+const hesIsPasting = ref({});
+const currentSolped = ref('');
+
+// Limpiar selección cuando los datos cambian
+watch(record_list, () => { selectedRecords.value = []; });
+
+// ── Filtros dropdowns ─────────────────────────────────────────────────────────
 const solpedDropdownOpen = ref(false);
 const solpedSearchQuery = ref('');
-
 const dropdownOpen = ref(false);
 const reportDropdownOpen = ref(false);
 const ocDropdownOpen = ref(false);
@@ -544,29 +586,11 @@ const ocSearchQuery = ref('');
 const hesDropdownOpen = ref(false);
 const hesSearchQuery = ref('');
 
-const toggleDropdown = () => {
-    dropdownOpen.value = !dropdownOpen.value;
-};
-
-const toggleReportDropdown = () => {
-    reportDropdownOpen.value = !reportDropdownOpen.value;
-};
-
-const toggleOcDropdown = () => {
-    ocDropdownOpen.value = !ocDropdownOpen.value;
-    if (ocDropdownOpen.value) ocSearchQuery.value = '';
-};
-
-const toggleHesDropdown = () => {
-    hesDropdownOpen.value = !hesDropdownOpen.value;
-    if (hesDropdownOpen.value) hesSearchQuery.value = '';
-};
-
-const toggleSolpedDropdown = () => {
-    solpedDropdownOpen.value = !solpedDropdownOpen.value;
-    if (solpedDropdownOpen.value) solpedSearchQuery.value = '';
-};
-
+const toggleDropdown = () => { dropdownOpen.value = !dropdownOpen.value; };
+const toggleReportDropdown = () => { reportDropdownOpen.value = !reportDropdownOpen.value; };
+const toggleOcDropdown = () => { ocDropdownOpen.value = !ocDropdownOpen.value; if (ocDropdownOpen.value) ocSearchQuery.value = ''; };
+const toggleHesDropdown = () => { hesDropdownOpen.value = !hesDropdownOpen.value; if (hesDropdownOpen.value) hesSearchQuery.value = ''; };
+const toggleSolpedDropdown = () => { solpedDropdownOpen.value = !solpedDropdownOpen.value; if (solpedDropdownOpen.value) solpedSearchQuery.value = ''; };
 const closeDropdown = (e) => {
     if (!e.target.closest('.custom-multiselect')) {
         dropdownOpen.value = false;
@@ -577,56 +601,143 @@ const closeDropdown = (e) => {
     }
 };
 
-const service_status_list = ref([]);
-const report_status_list = ref([]);
-const client_list = ref([]);
-const filter_line_list = ref([]);
-const filter_person_list = ref([]);
+// ── Modales ───────────────────────────────────────────────────────────────────
+const modalInstanceExito = ref(null);
+const modalErrorInstance = ref(null);
+const modalInstancePregunta = ref(null);
+const modalInstanceConvertir = ref(null);
+const modalInstanceConvertirMasivo = ref(null);
+
+// ── Queries de parámetros para filtros ────────────────────────────────────────
+const { data: serviceStatusData } = useParamServiceStatuses();
+const service_status_list = computed(() => serviceStatusData.value ?? []);
+
+const { data: reportStatusData } = useParamReportStatuses();
+const report_status_list = computed(() => reportStatusData.value ?? []);
+
+const { data: clientsParamData } = useParamClients();
+const client_list = computed(() => clientsParamData.value ?? []);
+
+const filterClientId = computed(() => filters.value.client_id);
+const { data: filterLinesData } = useParamLinesByClient(filterClientId);
+const filter_line_list = computed(() => filterLinesData.value ?? []);
+
+const { data: filterPersonsData } = useParamUsersByClient(filterClientId);
+const filter_person_list = computed(() => filterPersonsData.value ?? []);
+
+// ── Listas OC / Solped / HES (cargadas dinámicamente) ────────────────────────
 const oc_list = ref([]);
 const solped_list = ref([]);
-const record_list = ref([]);
-const total_paginas = ref(0);
-const total_registros = ref(0);
-const total_valor_formateado = ref('');
-const limit = ref(50);
-const position = ref(1);
+const hes_list = ref([]);
 
-const msg = ref('');
-const errorMsg = ref('');
-const token_status = ref(0);
-const record_id = ref(0);
-const convert_record_id = ref(0);
-const isConverting = ref(false);
-const selectedRecords = ref([]);
-const isConvertingMasivo = ref(false);
-const updatingStatus = ref({});
-const hesTimers = ref({});
-const hesIsPasting = ref({});
+const { mutate: loadOcListMutate } = useMutation({ mutationFn: (f) => serviceControlApi.getOcList(f) });
+const { mutate: loadHesListMutate } = useMutation({ mutationFn: (f) => serviceControlApi.getHesList(f) });
+const { mutate: loadSolpedListMutate } = useMutation({ mutationFn: (f) => serviceControlApi.getSolpedList(f) });
 
-const saveHes = async (record, value) => {
+const getOcFilters = () => ({
+    start_date: filters.value.start_date, end_date: filters.value.end_date,
+    solped: filters.value.solped, service_status: filters.value.service_status,
+    report_status: filters.value.report_status, client_id: filters.value.client_id,
+    client_line_id: filters.value.client_line_id, responsible_id: filters.value.responsible_id,
+    consecutive: filters.value.consecutive, hes: filters.value.hes, factura: filters.value.factura,
+    invoice_date_start: filters.value.invoice_date_start, invoice_date_end: filters.value.invoice_date_end,
+});
+const getHesFilters = () => ({
+    start_date: filters.value.start_date, end_date: filters.value.end_date,
+    solped: filters.value.solped, service_status: filters.value.service_status,
+    report_status: filters.value.report_status, client_id: filters.value.client_id,
+    client_line_id: filters.value.client_line_id, responsible_id: filters.value.responsible_id,
+    consecutive: filters.value.consecutive, oc: filters.value.oc, factura: filters.value.factura,
+    invoice_date_start: filters.value.invoice_date_start, invoice_date_end: filters.value.invoice_date_end,
+});
+const getSolpedFilters = () => ({
+    start_date: filters.value.start_date, end_date: filters.value.end_date,
+    service_status: filters.value.service_status, report_status: filters.value.report_status,
+    client_id: filters.value.client_id, client_line_id: filters.value.client_line_id,
+    responsible_id: filters.value.responsible_id, consecutive: filters.value.consecutive,
+    hes: filters.value.hes, oc: filters.value.oc, factura: filters.value.factura,
+    invoice_date_start: filters.value.invoice_date_start, invoice_date_end: filters.value.invoice_date_end,
+});
+
+const loadOcList = () => loadOcListMutate(getOcFilters(), { onSuccess: (r) => { oc_list.value = r.data.data || []; } });
+const loadHesList = () => loadHesListMutate(getHesFilters(), { onSuccess: (r) => { hes_list.value = r.data.data || []; } });
+const loadSolpedList = () => loadSolpedListMutate(getSolpedFilters(), { onSuccess: (r) => { solped_list.value = r.data.data || []; } });
+
+// Watches para recargar listas dinámicas cuando cambien los filtros relevantes
+const filtersForOc = computed(() => ({ ...getOcFilters() }));
+watch(filtersForOc, () => loadOcList(), { deep: true });
+
+const filtersForHes = computed(() => ({ ...getHesFilters() }));
+watch(filtersForHes, () => loadHesList(), { deep: true });
+
+const filtersForSolped = computed(() => ({ ...getSolpedFilters() }));
+watch(filtersForSolped, () => loadSolpedList(), { deep: true });
+
+// ── Selección OC / HES / Solped ───────────────────────────────────────────────
+const filteredOcList = computed(() => {
+    if (!ocSearchQuery.value.trim()) return oc_list.value;
+    const q = ocSearchQuery.value.trim().toLowerCase();
+    return oc_list.value.filter(o => o === '__EMPTY__' ? 'vacíos'.includes(q) : o.toLowerCase().includes(q));
+});
+const isAllOcSelected = computed(() => filteredOcList.value.length > 0 && filteredOcList.value.every(o => filters.value.oc.includes(o)));
+const isSomeOcSelected = computed(() => filteredOcList.value.some(o => filters.value.oc.includes(o)) && !isAllOcSelected.value);
+const toggleSelectAllOc = () => {
+    if (isAllOcSelected.value) { filters.value.oc = filters.value.oc.filter(o => !filteredOcList.value.includes(o)); }
+    else { filters.value.oc = [...filters.value.oc, ...filteredOcList.value.filter(o => !filters.value.oc.includes(o))]; }
+};
+
+const filteredSolpedList = computed(() => {
+    if (!solpedSearchQuery.value.trim()) return solped_list.value;
+    const q = solpedSearchQuery.value.trim().toLowerCase();
+    return solped_list.value.filter(s => s === '__EMPTY__' ? 'vacíos'.includes(q) : s.toLowerCase().includes(q));
+});
+const isAllSolpedSelected = computed(() => filteredSolpedList.value.length > 0 && filteredSolpedList.value.every(s => filters.value.solped.includes(s)));
+const isSomeSolpedSelected = computed(() => filteredSolpedList.value.some(s => filters.value.solped.includes(s)) && !isAllSolpedSelected.value);
+const toggleSelectAllSolped = () => {
+    if (isAllSolpedSelected.value) { filters.value.solped = filters.value.solped.filter(s => !filteredSolpedList.value.includes(s)); }
+    else { filters.value.solped = [...filters.value.solped, ...filteredSolpedList.value.filter(s => !filters.value.solped.includes(s))]; }
+};
+
+const filteredHesList = computed(() => {
+    if (!hesSearchQuery.value.trim()) return hes_list.value;
+    const q = hesSearchQuery.value.trim().toLowerCase();
+    return hes_list.value.filter(h => h.toLowerCase().includes(q));
+});
+const isAllHesSelected = computed(() => filteredHesList.value.length > 0 && filteredHesList.value.every(h => filters.value.hes.includes(h)));
+const isSomeHesSelected = computed(() => filteredHesList.value.some(h => filters.value.hes.includes(h)) && !isAllHesSelected.value);
+const toggleSelectAllHes = () => {
+    if (isAllHesSelected.value) { filters.value.hes = filters.value.hes.filter(h => !filteredHesList.value.includes(h)); }
+    else { filters.value.hes = [...filters.value.hes, ...filteredHesList.value.filter(h => !filters.value.hes.includes(h))]; }
+};
+
+// ── Selección de registros ────────────────────────────────────────────────────
+const isAllSelected = computed(() => {
+    const convertibles = record_list.value.filter(r => !r.report_id);
+    return convertibles.length > 0 && selectedRecords.value.length === convertibles.length;
+});
+const toggleSelectAll = (event) => {
+    if (event.target.checked) { selectedRecords.value = record_list.value.filter(r => !r.report_id).map(r => r.id); }
+    else { selectedRecords.value = []; }
+};
+const limpiarSeleccion = () => { selectedRecords.value = []; };
+
+// ── HES inline ────────────────────────────────────────────────────────────────
+const { mutate: updateInlineStatusMutate } = useUpdateInlineStatus();
+
+const saveHes = (record, value) => {
     const key = `${record.id}_hes`;
     updatingStatus.value[key] = true;
-    try {
-        await axios.post(
-            `${apiUrl}/service_control/update_inline_status`,
-            { record_id: record.id, hes: value.trim() || null },
-            { headers: { Accept: "application/json", Authorization: `Bearer ${token}` } }
-        );
-        record.hes = value.trim() || null;
-    } catch (error) {
-        console.error('Error al actualizar HES:', error);
-        errorMsg.value = error.response?.data?.message || 'Error al actualizar el HES';
-        if (error.response?.status === 401) {
-            token_status.value = 401;
-            errorMsg.value = error.response.data.detail;
-        } else if (error.response?.status === 403) {
-            token_status.value = 403;
-            errorMsg.value = error.response.data.detail;
+    updateInlineStatusMutate(
+        { record_id: record.id, hes: value.trim() || null },
+        {
+            onSuccess: () => { record.hes = value.trim() || null; },
+            onError: (err) => {
+                errorMsg.value = err.response?.data?.message || 'Error al actualizar el HES';
+                modalErrorInstance.value.show();
+            },
+            onSettled: () => { updatingStatus.value[key] = false; },
         }
-        modalErrorInstance.value.show();
-    } finally {
-        updatingStatus.value[key] = false;
-    }
+    );
 };
 
 const scheduleHesUpdate = (record, value, delay) => {
@@ -636,17 +747,12 @@ const scheduleHesUpdate = (record, value, delay) => {
         saveHes(record, value);
     }, delay);
 };
-
 const onHesInput = (record, event) => {
     const delay = hesIsPasting.value[record.id] ? 100 : 1200;
     hesIsPasting.value[record.id] = false;
     scheduleHesUpdate(record, event.target.value, delay);
 };
-
-const onHesPaste = (record) => {
-    hesIsPasting.value[record.id] = true;
-};
-
+const onHesPaste = (record) => { hesIsPasting.value[record.id] = true; };
 const onHesBlur = (record, event) => {
     if (hesTimers.value[record.id]) {
         clearTimeout(hesTimers.value[record.id]);
@@ -655,512 +761,127 @@ const onHesBlur = (record, event) => {
     }
 };
 
-const updateInlineStatus = async (record, field, newValue) => {
+const updateInlineStatus = (record, field, newValue) => {
     const key = `${record.id}_${field === 'service_status' ? 'service' : 'report'}`;
     updatingStatus.value[key] = true;
-    try {
-        await axios.post(
-            `${apiUrl}/service_control/update_inline_status`,
-            { record_id: record.id, [field]: parseInt(newValue) },
-            { headers: { Accept: "application/json", Authorization: `Bearer ${token}` } }
-        );
-        record[field] = parseInt(newValue);
-        if (field === 'service_status') {
-            const found = service_status_list.value.find(s => s.id === parseInt(newValue));
-            if (found) record.service_status_name = found.name;
-        } else {
-            const found = report_status_list.value.find(s => s.id === parseInt(newValue));
-            if (found) record.report_status_name = found.name;
-        }
-    } catch (error) {
-        console.error('Error al actualizar estado:', error);
-        errorMsg.value = error.response?.data?.message || 'Error al actualizar el estado';
-        if (error.response?.status === 401) {
-            token_status.value = 401;
-            errorMsg.value = error.response.data.detail;
-        } else if (error.response?.status === 403) {
-            token_status.value = 403;
-            errorMsg.value = error.response.data.detail;
-        }
-        modalErrorInstance.value.show();
-    } finally {
-        updatingStatus.value[key] = false;
-    }
-};
-
-const isAllSelected = computed(() => {
-    const convertibles = record_list.value.filter(r => !r.report_id);
-    return convertibles.length > 0 && selectedRecords.value.length === convertibles.length;
-});
-
-const filteredOcList = computed(() => {
-    if (!ocSearchQuery.value.trim()) return oc_list.value;
-    const q = ocSearchQuery.value.trim().toLowerCase();
-    return oc_list.value.filter(oc => {
-        if (oc === '__EMPTY__') return 'vac\u00edos'.includes(q);
-        return oc.toLowerCase().includes(q);
-    });
-});
-
-const isAllOcSelected = computed(() =>
-    filteredOcList.value.length > 0 &&
-    filteredOcList.value.every(oc => filters.value.oc.includes(oc))
-);
-
-const isSomeOcSelected = computed(() =>
-    filteredOcList.value.some(oc => filters.value.oc.includes(oc)) && !isAllOcSelected.value
-);
-
-const toggleSelectAllOc = () => {
-    if (isAllOcSelected.value) {
-        filters.value.oc = filters.value.oc.filter(o => !filteredOcList.value.includes(o));
-    } else {
-        const toAdd = filteredOcList.value.filter(o => !filters.value.oc.includes(o));
-        filters.value.oc = [...filters.value.oc, ...toAdd];
-    }
-};
-
-const filteredSolpedList = computed(() => {
-    if (!solpedSearchQuery.value.trim()) return solped_list.value;
-    const q = solpedSearchQuery.value.trim().toLowerCase();
-    return solped_list.value.filter(s => {
-        if (s === '__EMPTY__') return 'vac\u00edos'.includes(q);
-        return s.toLowerCase().includes(q);
-    });
-});
-
-const isAllSolpedSelected = computed(() =>
-    filteredSolpedList.value.length > 0 &&
-    filteredSolpedList.value.every(s => filters.value.solped.includes(s))
-);
-
-const isSomeSolpedSelected = computed(() =>
-    filteredSolpedList.value.some(s => filters.value.solped.includes(s)) && !isAllSolpedSelected.value
-);
-
-const toggleSelectAllSolped = () => {
-    if (isAllSolpedSelected.value) {
-        filters.value.solped = filters.value.solped.filter(s => !filteredSolpedList.value.includes(s));
-    } else {
-        const toAdd = filteredSolpedList.value.filter(s => !filters.value.solped.includes(s));
-        filters.value.solped = [...filters.value.solped, ...toAdd];
-    }
-};
-
-const hes_list = ref([]);
-
-const filteredHesList = computed(() => {
-    if (!hesSearchQuery.value.trim()) return hes_list.value;
-    const q = hesSearchQuery.value.trim().toLowerCase();
-    return hes_list.value.filter(h => h.toLowerCase().includes(q));
-});
-
-const isAllHesSelected = computed(() =>
-    filteredHesList.value.length > 0 &&
-    filteredHesList.value.every(h => filters.value.hes.includes(h))
-);
-
-const isSomeHesSelected = computed(() =>
-    filteredHesList.value.some(h => filters.value.hes.includes(h)) && !isAllHesSelected.value
-);
-
-const toggleSelectAllHes = () => {
-    if (isAllHesSelected.value) {
-        filters.value.hes = filters.value.hes.filter(h => !filteredHesList.value.includes(h));
-    } else {
-        const toAdd = filteredHesList.value.filter(h => !filters.value.hes.includes(h));
-        filters.value.hes = [...filters.value.hes, ...toAdd];
-    }
-};
-
-const toggleSelectAll = (event) => {
-    if (event.target.checked) {
-        selectedRecords.value = record_list.value.filter(r => !r.report_id).map(r => r.id);
-    } else {
-        selectedRecords.value = [];
-    }
-};
-
-const limpiarSeleccion = () => {
-    selectedRecords.value = [];
-};
-
-const modalInstanceExito = ref(null);
-const modalErrorInstance = ref(null);
-const modalInstancePregunta = ref(null);
-const modalInstanceConvertir = ref(null);
-const modalInstanceConvertirMasivo = ref(null);
-
-const get_records = async () => {
-    try {
-        const response = await axios.post(
-            `${apiUrl}/service_control/list`,
-            {
-                limit: parseInt(limit.value),
-                position: position.value,
-                filters: filters.value
+    updateInlineStatusMutate(
+        { record_id: record.id, [field]: parseInt(newValue) },
+        {
+            onSuccess: () => {
+                record[field] = parseInt(newValue);
+                if (field === 'service_status') {
+                    const found = service_status_list.value.find(s => s.id === parseInt(newValue));
+                    if (found) record.service_status_name = found.name;
+                } else {
+                    const found = report_status_list.value.find(s => s.id === parseInt(newValue));
+                    if (found) record.report_status_name = found.name;
+                }
             },
-            { headers: { Accept: "application/json", Authorization: `Bearer ${token}` } }
-        );
-        if (response.status === 200) {
-            record_list.value = response.data.data.registros;
-            total_paginas.value = response.data.data.total_pag;
-            total_registros.value = response.data.data.total_registros;
-            position.value = response.data.data.posicion_pag;
-            total_valor_formateado.value = response.data.data.total_valor_formateado || '';
-            selectedRecords.value = [];
+            onError: (err) => {
+                errorMsg.value = err.response?.data?.message || 'Error al actualizar el estado';
+                modalErrorInstance.value.show();
+            },
+            onSettled: () => { updatingStatus.value[key] = false; },
         }
-    } catch (error) {
-        console.error('Error al cargar los datos:', error);
-        errorMsg.value = error.response?.data?.message || 'Error inesperado';
-        if (error.response?.status === 401) {
-            token_status.value = 401;
-            errorMsg.value = error.response.data.detail;
-        } else if (error.response?.status === 403) {
-            token_status.value = 403;
-            errorMsg.value = error.response.data.detail;
-        }
-        modalErrorInstance.value.show();
-    }
+    );
 };
 
-const cargarFiltros = async () => {
-    try {
-        const [resStatuses, resReportStatuses, resClients] = await Promise.all([
-            axios.post(`${apiUrl}/params/get_service_statuses`, {},
-                { headers: { Accept: "application/json", Authorization: `Bearer ${token}` } }),
-            axios.post(`${apiUrl}/params/get_report_statuses`, {},
-                { headers: { Accept: "application/json", Authorization: `Bearer ${token}` } }),
-            axios.post(`${apiUrl}/params/get_clients`, {},
-                { headers: { Accept: "application/json", Authorization: `Bearer ${token}` } }),
-        ]);
-        service_status_list.value = resStatuses.data.data || [];
-        report_status_list.value = resReportStatuses.data.data || [];
-        client_list.value = resClients.data.data || [];
-    } catch (error) {
-        console.error('Error al cargar filtros:', error);
-    }
-};
+// ── Acciones sobre registros ──────────────────────────────────────────────────
+const { mutate: convertToReportMutate } = useConvertToReport();
+const { mutate: convertMultipleMutate } = useConvertMultiple();
+const { mutate: changeStatusMutate } = useChangeStatusServiceControl();
 
-const loadOcList = async () => {
-    try {
-        const filtersPayload = {
-            start_date: filters.value.start_date,
-            end_date: filters.value.end_date,
-            solped: filters.value.solped,
-            service_status: filters.value.service_status,
-            report_status: filters.value.report_status,
-            client_id: filters.value.client_id,
-            client_line_id: filters.value.client_line_id,
-            responsible_id: filters.value.responsible_id,
-            consecutive: filters.value.consecutive,
-            hes: filters.value.hes,
-            factura: filters.value.factura,
-            invoice_date_start: filters.value.invoice_date_start,
-            invoice_date_end: filters.value.invoice_date_end,
-        };
-        const response = await axios.post(
-            `${apiUrl}/service_control/get_oc_list`,
-            { filters: filtersPayload },
-            { headers: { Accept: "application/json", Authorization: `Bearer ${token}` } }
-        );
-        if (response.status === 200) {
-            oc_list.value = response.data.data || [];
+const modalConfirm = (id) => { record_id.value = id; modalInstancePregunta.value.show(); };
+const modalConfirmConvertir = (id) => { convert_record_id.value = id; modalInstanceConvertir.value.show(); };
+const modalConfirmConvertirMasivo = () => { if (selectedRecords.value.length === 0) return; modalInstanceConvertirMasivo.value.show(); };
+
+const convertirServicio = () => {
+    isConverting.value = true;
+    convertToReportMutate(
+        convert_record_id.value,
+        {
+            onSuccess: (response) => {
+                modalInstanceConvertir.value.hide();
+                msg.value = response.data.message;
+                modalInstanceExito.value.show();
+            },
+            onError: (err) => {
+                modalInstanceConvertir.value.hide();
+                errorMsg.value = err.response?.data?.message || 'Error inesperado al convertir';
+                modalErrorInstance.value.show();
+            },
+            onSettled: () => { isConverting.value = false; },
         }
-    } catch (error) {
-        console.error('Error al cargar OC list:', error);
-    }
+    );
 };
 
-const loadHesList = async () => {
-    try {
-        const filtersPayload = {
-            start_date: filters.value.start_date,
-            end_date: filters.value.end_date,
-            solped: filters.value.solped,
-            service_status: filters.value.service_status,
-            report_status: filters.value.report_status,
-            client_id: filters.value.client_id,
-            client_line_id: filters.value.client_line_id,
-            responsible_id: filters.value.responsible_id,
-            consecutive: filters.value.consecutive,
-            oc: filters.value.oc,
-            factura: filters.value.factura,
-            invoice_date_start: filters.value.invoice_date_start,
-            invoice_date_end: filters.value.invoice_date_end,
-        };
-        const response = await axios.post(
-            `${apiUrl}/service_control/get_hes_list`,
-            { filters: filtersPayload },
-            { headers: { Accept: "application/json", Authorization: `Bearer ${token}` } }
-        );
-        if (response.status === 200) {
-            hes_list.value = response.data.data || [];
+const convertirMasivo = () => {
+    isConvertingMasivo.value = true;
+    convertMultipleMutate(
+        selectedRecords.value,
+        {
+            onSuccess: (response) => {
+                modalInstanceConvertirMasivo.value.hide();
+                const { converted, errors } = response.data.data;
+                let msgText = response.data.message;
+                if (errors?.length > 0) {
+                    msgText += ` (${errors.length} con error: ${errors.map(e => `#${e.id}`).join(', ')})`;
+                }
+                msg.value = msgText;
+                modalInstanceExito.value.show();
+            },
+            onError: (err) => {
+                modalInstanceConvertirMasivo.value.hide();
+                errorMsg.value = err.response?.data?.message || 'Error inesperado al convertir';
+                modalErrorInstance.value.show();
+            },
+            onSettled: () => { isConvertingMasivo.value = false; },
         }
-    } catch (error) {
-        console.error('Error al cargar HES list:', error);
-    }
+    );
 };
 
-const loadSolpedList = async () => {
-    try {
-        const filtersPayload = {
-            start_date: filters.value.start_date,
-            end_date: filters.value.end_date,
-            service_status: filters.value.service_status,
-            report_status: filters.value.report_status,
-            client_id: filters.value.client_id,
-            client_line_id: filters.value.client_line_id,
-            responsible_id: filters.value.responsible_id,
-            consecutive: filters.value.consecutive,
-            hes: filters.value.hes,
-            oc: filters.value.oc,
-            factura: filters.value.factura,
-            invoice_date_start: filters.value.invoice_date_start,
-            invoice_date_end: filters.value.invoice_date_end,
-        };
-        const response = await axios.post(
-            `${apiUrl}/service_control/get_solped_list`,
-            { filters: filtersPayload },
-            { headers: { Accept: "application/json", Authorization: `Bearer ${token}` } }
-        );
-        if (response.status === 200) {
-            solped_list.value = response.data.data || [];
+const cambiarEstado = () => {
+    changeStatusMutate(
+        record_id.value,
+        {
+            onSuccess: (response) => {
+                modalInstancePregunta.value.hide();
+                msg.value = response.data.message;
+                modalInstanceExito.value.show();
+            },
+            onError: (err) => {
+                modalInstancePregunta.value.hide();
+                errorMsg.value = err.response?.data?.message || 'Error inesperado';
+                modalErrorInstance.value.show();
+            },
         }
-    } catch (error) {
-        console.error('Error al cargar Solped list:', error);
-    }
+    );
 };
 
-// Observar cambios en filtros (excepto oc) para recargar la lista de OC dinámicamente
-const filtersForOc = computed(() => ({
-    start_date: filters.value.start_date,
-    end_date: filters.value.end_date,
-    solped: [...filters.value.solped],
-    service_status: [...filters.value.service_status],
-    report_status: [...filters.value.report_status],
-    client_id: filters.value.client_id,
-    client_line_id: filters.value.client_line_id,
-    responsible_id: filters.value.responsible_id,
-    consecutive: filters.value.consecutive,
-    hes: [...filters.value.hes],
-    factura: filters.value.factura,
-    invoice_date_start: filters.value.invoice_date_start,
-    invoice_date_end: filters.value.invoice_date_end,
-}));
-
-watch(filtersForOc, () => {
-    loadOcList();
-}, { deep: true });
-
-// Observar cambios en filtros (excepto hes) para recargar la lista de HES dinámicamente
-const filtersForHes = computed(() => ({
-    start_date: filters.value.start_date,
-    end_date: filters.value.end_date,
-    solped: [...filters.value.solped],
-    service_status: [...filters.value.service_status],
-    report_status: [...filters.value.report_status],
-    client_id: filters.value.client_id,
-    client_line_id: filters.value.client_line_id,
-    responsible_id: filters.value.responsible_id,
-    consecutive: filters.value.consecutive,
-    oc: [...filters.value.oc],
-    factura: filters.value.factura,
-    invoice_date_start: filters.value.invoice_date_start,
-    invoice_date_end: filters.value.invoice_date_end,
-}));
-
-watch(filtersForHes, () => {
-    loadHesList();
-}, { deep: true });
-
-// Observar cambios en filtros (excepto solped) para recargar la lista de Solped dinámicamente
-const filtersForSolped = computed(() => ({
-    start_date: filters.value.start_date,
-    end_date: filters.value.end_date,
-    service_status: [...filters.value.service_status],
-    report_status: [...filters.value.report_status],
-    client_id: filters.value.client_id,
-    client_line_id: filters.value.client_line_id,
-    responsible_id: filters.value.responsible_id,
-    consecutive: filters.value.consecutive,
-    hes: [...filters.value.hes],
-    oc: [...filters.value.oc],
-    factura: filters.value.factura,
-    invoice_date_start: filters.value.invoice_date_start,
-    invoice_date_end: filters.value.invoice_date_end,
-}));
-
-watch(filtersForSolped, () => {
-    loadSolpedList();
-}, { deep: true });
-
-const onFilterClienteChange = async () => {
+// ── Filtros ───────────────────────────────────────────────────────────────────
+const onFilterClienteChange = () => {
     filters.value.client_line_id = '';
     filters.value.responsible_id = '';
-    filter_line_list.value = [];
-    filter_person_list.value = [];
-    if (!filters.value.client_id) return;
-    try {
-        const [resLineas, resPersonas] = await Promise.all([
-            axios.post(`${apiUrl}/params/get_lines_by_client`, { client: filters.value.client_id },
-                { headers: { Accept: "application/json", Authorization: `Bearer ${token}` } }),
-            axios.post(`${apiUrl}/params/get_users_by_client`, { client: filters.value.client_id },
-                { headers: { Accept: "application/json", Authorization: `Bearer ${token}` } }),
-        ]);
-        filter_line_list.value = resLineas.data.data || [];
-        filter_person_list.value = resPersonas.data.data || [];
-    } catch (error) {
-        console.error('Error al cargar líneas/responsables:', error);
-    }
 };
+const onFilterLineaChange = () => { filters.value.responsible_id = ''; };
 
-const onFilterLineaChange = () => {
-    filters.value.responsible_id = '';
-};
+const changePage = (newPosition) => { position.value = newPosition; };
+const applyFilters = () => { position.value = 1; };
 
-const changePage = async (newPosition) => {
-    position.value = newPosition;
-    await get_records();
-};
-
-const applyFilters = async () => {
-    position.value = 1;
-    await get_records();
-};
-
-const limpiarFiltros = async () => {
-    filters.value.start_date = '';
-    filters.value.end_date = '';
-    filters.value.solped = [];
-    filters.value.service_status = [];
-    filters.value.report_status = [];
-    filters.value.client_id = '';
-    filters.value.client_line_id = '';
-    filters.value.responsible_id = '';
-    filters.value.consecutive = '';
-    filters.value.hes = [];
-    filters.value.oc = [];
-    filters.value.factura = '';
-    filters.value.invoice_date_start = '';
-    filters.value.invoice_date_end = '';
-    filter_line_list.value = [];
-    filter_person_list.value = [];
+const limpiarFiltros = () => {
+    filters.value = {
+        start_date: '', end_date: '', solped: [], service_status: [], report_status: [],
+        client_id: '', client_line_id: '', responsible_id: '', consecutive: '',
+        hes: [], oc: [], factura: '', invoice_date_start: '', invoice_date_end: ''
+    };
     currentSolped.value = '';
     position.value = 1;
-    await get_records();
 };
 
-const modalConfirm = (id) => {
-    record_id.value = id;
-    modalInstancePregunta.value.show();
-};
+const get_records = () => { refetchRecords(); };
 
-const modalConfirmConvertir = (id) => {
-    convert_record_id.value = id;
-    modalInstanceConvertir.value.show();
-};
-
-const modalConfirmConvertirMasivo = () => {
-    if (selectedRecords.value.length === 0) return;
-    modalInstanceConvertirMasivo.value.show();
-};
-
-const convertirMasivo = async () => {
-    try {
-        isConvertingMasivo.value = true;
-        const response = await axios.post(
-            `${apiUrl}/service_control/convert_multiple_to_report`,
-            { record_ids: selectedRecords.value },
-            { headers: { Accept: "application/json", Authorization: `Bearer ${token}` } }
-        );
-        modalInstanceConvertirMasivo.value.hide();
-        if (response.status === 200) {
-            const { converted, errors } = response.data.data;
-            let msgText = response.data.message;
-            if (errors && errors.length > 0) {
-                msgText += ` (${errors.length} con error: ${errors.map(e => `#${e.id}`).join(', ')})`;
-            }
-            msg.value = msgText;
-            modalInstanceExito.value.show();
-            await get_records();
-        }
-    } catch (error) {
-        console.error('Error al convertir masivamente:', error);
-        modalInstanceConvertirMasivo.value.hide();
-        errorMsg.value = error.response?.data?.message || 'Error inesperado al convertir';
-        if (error.response?.status === 401) {
-            token_status.value = 401;
-            errorMsg.value = error.response.data.detail;
-        } else if (error.response?.status === 403) {
-            token_status.value = 403;
-            errorMsg.value = error.response.data.detail;
-        }
-        modalErrorInstance.value.show();
-    } finally {
-        isConvertingMasivo.value = false;
-    }
-};
-
-const convertirServicio = async () => {
-    try {
-        isConverting.value = true;
-        const response = await axios.post(
-            `${apiUrl}/service_control/convert_to_report`,
-            { record_id: convert_record_id.value },
-            { headers: { Accept: "application/json", Authorization: `Bearer ${token}` } }
-        );
-        modalInstanceConvertir.value.hide();
-        if (response.status === 200) {
-            msg.value = response.data.message;
-            modalInstanceExito.value.show();
-            await get_records();
-        }
-    } catch (error) {
-        console.error('Error al convertir:', error);
-        modalInstanceConvertir.value.hide();
-        errorMsg.value = error.response?.data?.message || 'Error inesperado al convertir';
-        if (error.response?.status === 401) {
-            token_status.value = 401;
-            errorMsg.value = error.response.data.detail;
-        } else if (error.response?.status === 403) {
-            token_status.value = 403;
-            errorMsg.value = error.response.data.detail;
-        }
-        modalErrorInstance.value.show();
-    } finally {
-        isConverting.value = false;
-    }
-};
-
-const cambiarEstado = async () => {
-    try {
-        const response = await axios.post(
-            `${apiUrl}/service_control/change_status`,
-            { record_id: record_id.value },
-            { headers: { Accept: "application/json", Authorization: `Bearer ${token}` } }
-        );
-        modalInstancePregunta.value.hide();
-        if (response.status === 200) {
-            msg.value = response.data.message;
-            modalInstanceExito.value.show();
-            await get_records();
-        }
-    } catch (error) {
-        console.error('Error al cambiar estado:', error);
-        modalInstancePregunta.value.hide();
-        errorMsg.value = error.response?.data?.message || 'Error inesperado';
-        modalErrorInstance.value.show();
-    }
-};
-
-function logout() {
-    localStorage.clear();
-    router.push('/');
-}
-function redirigir_dashboard() {
-    router.push('/dashboard');
-}
+function logout() { auth.clearSession(); router.push('/'); }
+function redirigir_dashboard() { router.push('/dashboard'); }
 
 onMounted(() => {
     modalInstanceExito.value = new Modal(exitoModal);
@@ -1168,13 +889,10 @@ onMounted(() => {
     modalInstancePregunta.value = new Modal(preguntaModal);
     modalInstanceConvertir.value = new Modal(convertirModal);
     modalInstanceConvertirMasivo.value = new Modal(convertirMasivoModal);
-    if (!token) { router.push('/'); return; }
     document.addEventListener('click', closeDropdown);
-    cargarFiltros();
     loadOcList();
     loadHesList();
     loadSolpedList();
-    get_records();
 });
 
 onBeforeUnmount(() => {

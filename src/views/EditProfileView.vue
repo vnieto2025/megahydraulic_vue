@@ -87,16 +87,16 @@
 </template>
 
 <script setup>
-import apiUrl from "../../config.js";
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, watch } from 'vue';
 import { useRouter } from "vue-router";
 import LayoutView from '../views/Layouts/LayoutView.vue';
-import axios from 'axios';
 import { Modal } from 'bootstrap';
+import { useAuthStore } from '../stores/auth.js';
+import { useUpdateUser, useUser } from '../composables/useUsers.js';
 
+const auth = useAuthStore();
+const router = useRouter();
 
-const tipo_documento = ref(0);
-const tipo_documento_list = ref([]);
 const documento = ref('');
 const primer_nombre = ref('');
 const segundo_nombre = ref('');
@@ -104,8 +104,6 @@ const primer_apellido = ref('');
 const segundo_apellido = ref('');
 const correo = ref('');
 const foto = ref(null);
-const token = localStorage.getItem('token');
-const user_id = localStorage.getItem('user_id');
 const modalInstance = ref(null);
 const modalErrorInstance = ref(null);
 const msg = ref('');
@@ -113,149 +111,66 @@ const error = ref('');
 const errorMsg = ref('');
 const token_status = ref(0);
 
-// Acceder al enrutador
-const router = useRouter();
-
-
-const actualizarPerfil = async () => {
-    try {
-        if (!token) {
-            router.push('/'); // Redirigir al login si no hay token
-        }
-
-        const response = await axios.post(
-            `${apiUrl}/user/update_user`,
-            {
-                user_id: user_id,
-                document: documento.value,
-                first_name: primer_nombre.value,
-                second_name: segundo_nombre.value,
-                last_name: primer_apellido.value,
-                second_last_name: segundo_apellido.value,
-                email: correo.value,
-                photo: foto.value
-            },
-            {
-                headers: {
-                    Accept: "application/json",
-                    Authorization: `Bearer ${token}`
-                }
-            }
-        );
-        if (response.status === 201) {
-            msg.value = response.data.message
-            if (foto.value != null) {
-                localStorage.setItem("photo", response.data.data);
-            }
-            modalInstance.value.show();                    
-        }else if (response.status === 200) {
-            error.value = response.data.message
-        }
-    } catch (error) {
-        modalErrorInstance.value.show()
-        errorMsg.value = error.response.data.message;
-        if (error.response.status === 401) {
-          token_status.value = error.response.status
-          errorMsg.value = error.response.data.detail;
-        } else if (error.response.status === 403) {
-            token_status.value = error.response.status
-            errorMsg.value = error.response.data.detail;
-        }
+const { data: userData } = useUser(auth.userId);
+watch(userData, (val) => {
+    if (val) {
+        documento.value = val.document;
+        primer_nombre.value = val.first_name;
+        segundo_nombre.value = val.second_name;
+        primer_apellido.value = val.last_name;
+        segundo_apellido.value = val.second_last_name;
+        correo.value = val.email;
     }
-}
-const cargarDatos = async () => {
-    try {
-        if (!token) {
-            router.push('/'); // Redirigir al login si no hay token
-        }
-        const response = await axios.post(
-            `${apiUrl}/params/get_type_document`, {},
-            {
-                headers: {
-                    Accept: "application/json",
-                    Authorization: `Bearer ${token}`
+}, { immediate: true });
+
+const { mutate: updateUser } = useUpdateUser();
+
+const actualizarPerfil = () => {
+    updateUser(
+        {
+            user_id: auth.userId,
+            document: documento.value,
+            first_name: primer_nombre.value,
+            second_name: segundo_nombre.value,
+            last_name: primer_apellido.value,
+            second_last_name: segundo_apellido.value,
+            email: correo.value,
+            photo: foto.value
+        },
+        {
+            onSuccess: (response) => {
+                msg.value = response.data.message;
+                if (foto.value != null) {
+                    auth.setSession({ ...auth.$state, photo: response.data.data });
                 }
-            }
-        );
-
-        if (response.status === 200) {
-            msg.value = response.data.message;
-            tipo_documento_list.value = response.data.data;
-        }
-
-        const responseUser = await axios.post(
-            `${apiUrl}/user/get_user`, 
-            {
-                user_id: parseInt(user_id)
+                modalInstance.value.show();
             },
-            {
-                headers: {
-                    Accept: "application/json",
-                    Authorization: `Bearer ${token}`
-                }
+            onError: (err) => {
+                errorMsg.value = err.response?.data?.message || 'Error';
+                token_status.value = err.response?.status || 0;
+                if (err.response?.status === 401) errorMsg.value = err.response.data.detail;
+                else if (err.response?.status === 403) errorMsg.value = err.response.data.detail;
+                modalErrorInstance.value.show();
             }
-        );
-
-        if (responseUser.status === 200) {
-            msg.value = responseUser.data.message;
-            tipo_documento.value = responseUser.data.data.type_document;
-            documento.value = responseUser.data.data.document;
-            primer_nombre.value = responseUser.data.data.first_name;
-            segundo_nombre.value = responseUser.data.data.second_name;
-            primer_apellido.value = responseUser.data.data.last_name;
-            segundo_apellido.value = responseUser.data.data.second_last_name;
-            correo.value = responseUser.data.data.email;
         }
-    } catch (error) {
-        console.error('Error al cargar los datos:', error);
-        modalErrorInstance.value.show()
-        errorMsg.value = error.response.data.message;
-        if (error.response.status === 401) {
-          token_status.value = error.response.status
-          errorMsg.value = error.response.data.detail;
-        } else if (error.response.status === 403) {
-            token_status.value = error.response.status
-            errorMsg.value = error.response.data.detail;
-        }
-    }
+    );
 };
+
 const handleFileUpload = (event) => {
     const file = event.target.files[0];
-    if (!file) {
-        console.error("No se seleccionó un archivo.");
-        return;
-    }
+    if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => {
-        foto.value = reader.result; // Aquí almacenamos el archivo en base64
-    };
-    reader.onerror = (error) => {
-        console.error("Error al leer el archivo:", error);
-    };
+    reader.onload = () => { foto.value = reader.result; };
     reader.readAsDataURL(file);
 };
-const refresh = async () => {
-    location.reload();
-};
-// Función para manejar el cierre de sesión
-function logout() {
-  localStorage.clear();
-  router.push('/'); // Redirigir al login
-};
-function redirigir_dashboard() {
-  router.push('/dashboard'); // Redirigir al dashboard
-};
 
-// Código que se ejecuta al montar el componente
+const refresh = () => { location.reload(); };
+function logout() { auth.clearSession(); router.push('/'); };
+function redirigir_dashboard() { router.push('/dashboard'); };
+
 onMounted(() => {
-
     modalInstance.value = new Modal(exitoModal);
     modalErrorInstance.value = new Modal(errorModal);
-    if (!token) {
-        router.push('/'); // Redirigir al login si no hay token
-    }
-    // Cargar los datos para los select inputs cuando se monta el componente
-    cargarDatos();
 });
 
 </script>

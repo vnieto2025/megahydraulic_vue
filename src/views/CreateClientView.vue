@@ -86,13 +86,11 @@
 </template>
 
 <script setup>
-import apiUrl from "../../config.js";
 import { ref, onMounted } from 'vue';
 import { useRouter } from "vue-router";
 import LayoutView from '../views/Layouts/LayoutView.vue';
-import axios from 'axios';
 import { Modal } from 'bootstrap';
-
+import { useCreateClient } from '../composables/useClients.js';
 
 const cliente = ref('');
 const lineas = ref([]);
@@ -100,7 +98,6 @@ const nuevaLinea = ref('');
 const personas = ref([]);
 const nuevaPersona = ref('');
 
-const token = localStorage.getItem('token');
 const modalInstance = ref(null);
 const modalErrorInstance = ref(null);
 const msg = ref('');
@@ -108,47 +105,30 @@ const error = ref('');
 const errorMsg = ref('');
 const token_status = ref(0);
 
-// Acceder al enrutador
 const router = useRouter();
-
+const { mutate: createClient } = useCreateClient();
 
 const crearCliente = async () => {
-    try {
-        if (!token) {
-            router.push('/'); // Redirigir al login si no hay token
-        }
-
-        const response = await axios.post(
-            `${apiUrl}/client/create`,
-            {
-                client_name: cliente.value,
-                lines_list: lineas.value,
-                person_list: personas.value,
+    createClient(
+        {
+            client_name: cliente.value,
+            lines_list: lineas.value,
+            person_list: personas.value,
+        },
+        {
+            onSuccess: (response) => {
+                msg.value = response.data.message;
+                modalInstance.value.show();
             },
-            {
-                headers: {
-                    Accept: "application/json",
-                    Authorization: `Bearer ${token}`
-                }
+            onError: (err) => {
+                errorMsg.value = err.response?.data?.message || 'Error al crear cliente';
+                token_status.value = err.response?.status || 0;
+                if (err.response?.status === 401) errorMsg.value = err.response.data.detail;
+                else if (err.response?.status === 403) errorMsg.value = err.response.data.detail;
+                modalErrorInstance.value.show();
             }
-        );
-        if (response.status === 201) {
-            msg.value = response.data.message
-            modalInstance.value.show();                    
-        }else if (response.status === 200) {
-            msg.value = response.data.message
         }
-    } catch (error) {
-        modalErrorInstance.value.show()
-        errorMsg.value = error.response.data.message;
-        if (error.response.status === 401) {
-            token_status.value = error.response.status
-            errorMsg.value = error.response.data.detail;
-        } else if (error.response.status === 403) {
-            token_status.value = error.response.status
-            errorMsg.value = error.response.data.detail;
-        }
-    }
+    );
 }
 
 const agregarParam = (nuevaLista, param) => {
@@ -161,22 +141,16 @@ const agregarParam = (nuevaLista, param) => {
 const eliminarParam = (nuevaLista, index) => {
     nuevaLista.splice(index, 1);
 };
-// Función para manejar el cierre de sesión
 function logout() {
-  localStorage.clear();
-  router.push('/'); // Redirigir al login
+  router.push('/');
 };
 function redirigir_dashboard() {
-  router.push('/dashboard'); // Redirigir al dashboard
+  router.push('/dashboard');
 };
 
-// Código que se ejecuta al montar el componente
 onMounted(() => {
     modalInstance.value = new Modal(exitoModal);
     modalErrorInstance.value = new Modal(errorModal);
-    if (!token) {
-        router.push('/'); // Redirigir al login si no hay token
-    }
 });
 
 </script>

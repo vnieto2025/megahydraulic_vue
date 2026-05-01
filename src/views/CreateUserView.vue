@@ -95,18 +95,15 @@
 </template>
 
 <script setup>
-import apiUrl from "../../config.js";
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useRouter } from "vue-router";
 import LayoutView from '../views/Layouts/LayoutView.vue';
-import axios from 'axios';
 import { Modal } from 'bootstrap';
-
+import { useParamTypeDocument, useParamTypeUser } from '../composables/useParams.js';
+import { useCreateUser } from '../composables/useUsers.js';
 
 const tipo_documento = ref(0);
-const tipo_documento_list = ref([]);
 const tipo_usuario = ref(0);
-const tipo_usuario_list = ref([]);
 const documento = ref('');
 const primer_nombre = ref('');
 const segundo_nombre = ref('');
@@ -114,7 +111,6 @@ const primer_apellido = ref('');
 const segundo_apellido = ref('');
 const correo = ref('');
 const clave = ref('');
-const token = localStorage.getItem('token');
 const modalInstance = ref(null);
 const modalErrorInstance = ref(null);
 const msg = ref('');
@@ -122,120 +118,50 @@ const error = ref('');
 const errorMsg = ref('');
 const token_status = ref(0);
 
-// Acceder al enrutador
 const router = useRouter();
 
+const { data: tipoDocData } = useParamTypeDocument();
+const { data: tipoUserData } = useParamTypeUser();
+const tipo_documento_list = computed(() => tipoDocData.value?.data?.data ?? []);
+const tipo_usuario_list = computed(() => tipoUserData.value?.data?.data ?? []);
 
-const crearUsuario = async () => {
-    try {
-        if (!token) {
-            router.push('/'); // Redirigir al login si no hay token
-        }
+const { mutate: createUser } = useCreateUser();
 
-        const response = await axios.post(
-            `${apiUrl}/user/create_user`,
-            {
-                type_document: tipo_documento.value,
-                document: documento.value,
-                first_name: primer_nombre.value,
-                second_name: segundo_nombre.value,
-                last_name: primer_apellido.value,
-                second_last_name: segundo_apellido.value,
-                email: correo.value,
-                user_type_id: tipo_usuario.value
+const crearUsuario = () => {
+    createUser(
+        {
+            type_document: tipo_documento.value,
+            document: documento.value,
+            first_name: primer_nombre.value,
+            second_name: segundo_nombre.value,
+            last_name: primer_apellido.value,
+            second_last_name: segundo_apellido.value,
+            email: correo.value,
+            user_type_id: tipo_usuario.value
+        },
+        {
+            onSuccess: (response) => {
+                msg.value = response.data.message;
+                clave.value = response.data.data;
+                modalInstance.value.show();
             },
-            {
-                headers: {
-                    Accept: "application/json",
-                    Authorization: `Bearer ${token}`
-                }
+            onError: (err) => {
+                errorMsg.value = err.response?.data?.message || 'Error';
+                token_status.value = err.response?.status || 0;
+                if (err.response?.status === 401) errorMsg.value = err.response.data.detail;
+                else if (err.response?.status === 403) errorMsg.value = err.response.data.detail;
+                modalErrorInstance.value.show();
             }
-        );
-        if (response.status === 201) {
-            msg.value = response.data.message
-            clave.value = response.data.data
-            modalInstance.value.show();                    
-        }else if (response.status === 200) {
-            msg.value = response.data.message
         }
-    } catch (error) {
-        modalErrorInstance.value.show()
-        errorMsg.value = error.response.data.message;
-        if (error.response.status === 401) {
-          token_status.value = error.response.status
-          errorMsg.value = error.response.data.detail;
-        } else if (error.response.status === 403) {
-            token_status.value = error.response.status
-            errorMsg.value = error.response.data.detail;
-        }
-    }
-}
-const cargarDatos = async () => {
-    try {
-        if (!token) {
-            router.push('/'); // Redirigir al login si no hay token
-        }
-        const response = await axios.post(
-            `${apiUrl}/params/get_type_document`, {},
-            {
-                headers: {
-                    Accept: "application/json",
-                    Authorization: `Bearer ${token}`
-                }
-            }
-        );
-
-        if (response.status === 200) {
-            msg.value = response.data.message;
-            tipo_documento_list.value = response.data.data;
-        }
-
-        const responseTipoUsuario = await axios.post(
-            `${apiUrl}/params/get_type_user`, {},
-            {
-                headers: {
-                    Accept: "application/json",
-                    Authorization: `Bearer ${token}`
-                }
-            }
-        );
-
-        if (responseTipoUsuario.status === 200) {
-            msg.value = responseTipoUsuario.data.message;
-            tipo_usuario_list.value = responseTipoUsuario.data.data;
-        }
-    } catch (error) {
-        console.error('Error al cargar los datos:', error);
-        modalErrorInstance.value.show()
-        errorMsg.value = error.response.data.message;
-        if (error.response.status === 401) {
-          token_status.value = error.response.status
-          errorMsg.value = error.response.data.detail;
-        } else if (error.response.status === 403) {
-            token_status.value = error.response.status
-            errorMsg.value = error.response.data.detail;
-        }
-    }
-};
-// Función para manejar el cierre de sesión
-function logout() {
-  localStorage.clear();
-  router.push('/'); // Redirigir al login
-};
-function redirigir_dashboard() {
-  router.push('/dashboard'); // Redirigir al dashboard
+    );
 };
 
-// Código que se ejecuta al montar el componente
+function logout() { router.push('/'); };
+function redirigir_dashboard() { router.push('/dashboard'); };
+
 onMounted(() => {
-
     modalInstance.value = new Modal(exitoModal);
     modalErrorInstance.value = new Modal(errorModal);
-    if (!token) {
-        router.push('/'); // Redirigir al login si no hay token
-    }
-    // Cargar los datos para los select inputs cuando se monta el componente
-    cargarDatos();
 });
 
 </script>

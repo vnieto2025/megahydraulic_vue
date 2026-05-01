@@ -22,10 +22,10 @@
 <script setup>
 import { useRouter } from "vue-router";
 import LayoutView from '../views/Layouts/LayoutView.vue';
+import { useAuthStore } from '../stores/auth.js';
 
-// const user_id = localStorage.getItem('user_id');
-const token = localStorage.getItem('token');
-const modulos = JSON.parse(localStorage.getItem('permissions'));
+const auth = useAuthStore();
+const modulos = auth.permissions;
 
 // Accede al enrutador
 const router = useRouter();

@@ -168,201 +168,113 @@
 </template>
 
 <script setup>
-import apiUrl from "../../config.js";
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useRouter } from "vue-router";
-import axios from 'axios';
 import { Modal } from 'bootstrap';
 import LayoutView from '../views/Layouts/LayoutView.vue';
 import gestion from "@/assets/icons/gestion.png";
 import desactivar from "@/assets/icons/trash.svg";
 import activar from "@/assets/icons/activar.png";
+import { useParamTypeUser } from '../composables/useParams.js';
+import { useUserList, useChangeUserStatus, useUpdateTypeUser } from '../composables/useUsers.js';
 
-const token = localStorage.getItem('token');
 const msg = ref('');
-
 const tipo_usuario = ref(0);
-const tipo_usuario_list = ref([]);
-const usuarios_list = ref([]);
-const total_paginas = ref(0);
-const total_registros = ref(0);
 const usuario_id = ref('');
 const estado = ref(0);
-const estado_enviar = ref(0);
-
 const limit = ref(10);
 const position = ref(1);
-
 const errorMsg = ref('');
-const msgList = ref('');
 const pregunta = ref('');
+const token_status = ref(0);
 
 const modalInstanceExito  = ref(null);
 const modalInstancePregunta = ref(null);
 const modalErrorInstance  = ref(null);
 const modalInstanceEditar   = ref(null);
-const token_status = ref(0);
 
 const router = useRouter();
 
-const get_users = async () => {
-  try {
-    const response = await axios.post(
-        `${apiUrl}/user/list_user`, 
+const { data: tipoUserData } = useParamTypeUser();
+const tipo_usuario_list = computed(() => tipoUserData.value?.data?.data ?? []);
+
+const { data: usersData, refetch: refetchUsers } = useUserList(limit, position);
+const usuarios_list = computed(() => usersData.value?.usuarios ?? []);
+const total_paginas = computed(() => usersData.value?.total_pag ?? 0);
+
+const { mutate: changeStatus } = useChangeUserStatus();
+const { mutate: updateTypeUser } = useUpdateTypeUser();
+
+const changePage = (newPosition) => {
+    position.value = newPosition;
+};
+
+const modalConfirm = (data_usuario) => {
+    pregunta.value = data_usuario.status == 1
+        ? "¿Seguro desea desactivar el usuario: "
+        : "¿Seguro desea activar el usuario: ";
+    modalInstancePregunta.value.show();
+    usuario_id.value = data_usuario.id;
+    estado.value = data_usuario.status;
+};
+
+const cambiarEstado = () => {
+    const estado_enviar = estado.value == 1 ? 0 : 1;
+    changeStatus(
+        { user_id: parseInt(usuario_id.value), status: estado_enviar },
         {
-            limit: parseInt(limit.value),
-            position: position.value
-        },
-        {
-            headers: {
-                Accept: "application/json",
-                Authorization: `Bearer ${token}`
+            onSuccess: (response) => {
+                modalInstancePregunta.value.hide();
+                msg.value = response.data.message;
+                modalInstanceExito.value.show();
+                refetchUsers();
+            },
+            onError: (err) => {
+                errorMsg.value = err.response?.data?.message || 'Error';
+                token_status.value = err.response?.status || 0;
+                if (err.response?.status === 401) errorMsg.value = err.response.data.detail;
+                else if (err.response?.status === 403) errorMsg.value = err.response.data.detail;
+                modalErrorInstance.value.show();
             }
         }
     );
+};
 
-    if (response.status === 200) {
-        msgList.value = response.data.message;
-        usuarios_list.value = response.data.data.usuarios;
-        total_paginas.value = response.data.data.total_pag;
-        total_registros.value = response.data.data.total_registros;
-        position.value = response.data.data.posicion_pag;
-    }
-
-    const responseTipoUsuario = await axios.post(
-        `${apiUrl}/params/get_type_user`, {},
+const gestionUsuario = () => {
+    updateTypeUser(
+        { user_id: usuario_id.value, user_type_id: tipo_usuario.value },
         {
-            headers: {
-                Accept: "application/json",
-                Authorization: `Bearer ${token}`
+            onSuccess: (response) => {
+                modalInstanceEditar.value.hide();
+                msg.value = response.data.message;
+                modalInstanceExito.value.show();
+                refetchUsers();
+            },
+            onError: (err) => {
+                errorMsg.value = err.response?.data?.message || 'Error';
+                token_status.value = err.response?.status || 0;
+                if (err.response?.status === 401) errorMsg.value = err.response.data.detail;
+                else if (err.response?.status === 403) errorMsg.value = err.response.data.detail;
+                modalErrorInstance.value.show();
             }
         }
     );
+};
 
-    if (responseTipoUsuario.status === 200) {
-        tipo_usuario_list.value = responseTipoUsuario.data.data;
-    }
-  } catch (error) {
-      console.error('Error al cargar los datos:', error);
-      modalErrorInstance.value.show();
-      errorMsg.value = error.response.data.message;
-      if (error.response.status === 401) {
-        token_status.value = error.response.status
-        errorMsg.value = error.response.data.detail;
-      }else if (error.response.status === 403) {
-        token_status.value = error.response.status
-        errorMsg.value = error.response.data.detail;
-      }
-  }
-}
-const changePage = async (newPosition) => {
-  position.value = newPosition;
-  await get_users(); // Vuelve a cargar los datos con el nuevo límite y posición
+const modalEdit = (param) => {
+    tipo_usuario.value = param.user_type_id;
+    usuario_id.value = param.id;
+    modalInstanceEditar.value.show();
 };
-const modalConfirm = async (data_usuario) => {
-  if (data_usuario.status == 1){
-    pregunta.value = "¿Seguro desea desactivar el usuario: "
-  }else{
-    pregunta.value = "¿Seguro desea activar el usuario: "
-  }
-  modalInstancePregunta.value.show();
-  usuario_id.value = data_usuario.id;
-  estado.value = data_usuario.status;
-};
-const cambiarEstado = async () => {
-  try {
-    estado_enviar.value = estado.value == 1 ? 0 : 1;
-    const response = await axios.post(
-        `${apiUrl}/user/change_status`, 
-        {
-            user_id: parseInt(usuario_id.value),
-            status: estado_enviar.value
-        },
-        {
-            headers: {
-                Accept: "application/json",
-                Authorization: `Bearer ${token}`
-            }
-        }
-    );
-    modalInstancePregunta.value.hide();
-    if (response.status === 200) {
-        msg.value = response.data.message;
-        modalInstanceExito.value.show()
-        await get_users()
-    }
-  } catch (error) {
-    modalErrorInstance.value.show()
-    errorMsg.value = error.response.data.message;
-    if (error.response.status === 401) {
-      token_status.value = error.response.status
-      errorMsg.value = error.response.data.detail;
-    }else if (error.response.status === 403) {
-      token_status.value = error.response.status
-      errorMsg.value = error.response.data.detail;
-    }
-}
-};
-const gestionUsuario = async () => {
-  try {
-    const response = await axios.post(
-        `${apiUrl}/user/update_type_user`, 
-        {
-            user_id: usuario_id.value,
-            user_type_id: tipo_usuario.value
-        },
-        {
-            headers: {
-                Accept: "application/json",
-                Authorization: `Bearer ${token}`
-            }
-        }
-    );
-    modalInstanceEditar.value.hide();
-    if (response.status === 200) {
-        msg.value = response.data.message;
-        modalInstanceExito.value.show();
-        await get_users();
-    }
 
-  } catch (error) {
-      console.error('Error al cargar los datos:', error);
-      modalErrorInstance.value.show();
-      errorMsg.value = error.response.data.message;
-      if (error.response.status === 401) {
-        token_status.value = error.response.status
-        errorMsg.value = error.response.data.detail;
-      }else if (error.response.status === 403) {
-        token_status.value = error.response.status
-        errorMsg.value = error.response.data.detail;
-      }
-  }
-};
-const modalEdit = async (param) => {
-  tipo_usuario.value = param.user_type_id
-  usuario_id.value = param.id
-  modalInstanceEditar.value.show();
-};
-// Función para manejar el cierre de sesión
-function logout() {
-  localStorage.clear();
-  router.push('/'); // Redirigir al login
-}
-function redirigir_dashboard() {
-  router.push('/dashboard'); // Redirigir al dashboard
-}
+function logout() { router.push('/'); }
+function redirigir_dashboard() { router.push('/dashboard'); }
 
-// Código que se ejecuta al montar el componente
 onMounted(() => {
     modalInstanceExito.value = new Modal(exitoModal);
     modalInstancePregunta.value = new Modal(preguntaModal);
     modalErrorInstance.value = new Modal(errorModal);
     modalInstanceEditar.value = new Modal(editModal);
-    if (!token) {
-        router.push('/'); // Redirigir al login si no hay token
-    }
-    // Cargar los datos para los select inputs cuando se monta el componente
-    get_users();
 });
 </script>
 

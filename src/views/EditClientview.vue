@@ -75,12 +75,11 @@
 </template>
 
 <script setup>
-import apiUrl from "../../config.js";
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, watch } from 'vue';
 import { useRouter, useRoute } from "vue-router";
 import LayoutView from '../views/Layouts/LayoutView.vue';
-import axios from 'axios';
 import { Modal } from 'bootstrap';
+import { useClient, useUpdateClient } from '../composables/useClients.js';
 
 const router = useRouter();
 const route = useRoute();
@@ -88,11 +87,8 @@ const route = useRoute();
 const nombre_cliente = ref('');
 const lineas_cliente = ref([]);
 const usuarios_cliente = ref([]);
-const datos_cliente = ref([]);
 const cliente_id = parseInt(route.params.id);
 
-const token = localStorage.getItem('token');
-const user_id = localStorage.getItem('user_id');
 const modalInstance = ref(null);
 const modalErrorInstance = ref(null);
 const msg = ref('');
@@ -100,103 +96,47 @@ const error = ref('');
 const errorMsg = ref('');
 const token_status = ref(0);
 
-const actualizarCliente = async () => {
+const { data: clienteData } = useClient(cliente_id);
+const { mutate: updateClient } = useUpdateClient();
 
-    try {
-        if (!token) {
-            router.push('/'); // Redirigir al login si no hay token
-        }
-
-        const response = await axios.post(
-            `${apiUrl}/client/update_client`,
-            {
-                client_id: cliente_id,
-                client_name: nombre_cliente.value,
-                lines_list: lineas_cliente.value,
-                person_list: usuarios_cliente.value,
-            },
-            {
-                headers: {
-                    Accept: "application/json",
-                    Authorization: `Bearer ${token}`
-                }
-            }
-        );
-        if (response.status === 200) {
-            msg.value = response.data.message
-            modalInstance.value.show();      
-            await cargarDatos();              
-        }
-    } catch (error) {
-        modalErrorInstance.value.show()
-        errorMsg.value = error.response.data.message;
-        if (error.response.status === 401) {
-          token_status.value = error.response.status
-          errorMsg.value = error.response.data.detail;
-        } else if (error.response.status === 403) {
-            token_status.value = error.response.status
-            errorMsg.value = error.response.data.detail;
-        }
+watch(clienteData, (val) => {
+    if (val) {
+        nombre_cliente.value = val.name;
+        lineas_cliente.value = val.lines;
+        usuarios_cliente.value = val.persons;
     }
-}
-const cargarDatos = async () => {
-    try {
-        if (!token) {
-            router.push('/'); // Redirigir al login si no hay token
-        }
-        const response = await axios.post(
-            `${apiUrl}/client/get_client`, 
-            {
-                client_id: cliente_id
+}, { immediate: true });
+
+const actualizarCliente = () => {
+    updateClient(
+        {
+            client_id: cliente_id,
+            client_name: nombre_cliente.value,
+            lines_list: lineas_cliente.value,
+            person_list: usuarios_cliente.value,
+        },
+        {
+            onSuccess: (response) => {
+                msg.value = response.data.message;
+                modalInstance.value.show();
             },
-            {
-                headers: {
-                    Accept: "application/json",
-                    Authorization: `Bearer ${token}`
-                }
+            onError: (err) => {
+                errorMsg.value = err.response?.data?.message || 'Error al actualizar';
+                token_status.value = err.response?.status || 0;
+                if (err.response?.status === 401) errorMsg.value = err.response.data.detail;
+                else if (err.response?.status === 403) errorMsg.value = err.response.data.detail;
+                modalErrorInstance.value.show();
             }
-        );
-
-        if (response.status === 200) {
-            msg.value = "Cliente actualizado.";
-            datos_cliente.value = response.data.data;
-            nombre_cliente.value = datos_cliente.value.name;
-            lineas_cliente.value = datos_cliente.value.lines;
-            usuarios_cliente.value = datos_cliente.value.persons;
         }
-
-    } catch (error) {
-        console.error('Error al cargar los datos:', error);
-        modalErrorInstance.value.show()
-        errorMsg.value = error.response.data.message;
-        if (error.response.status === 401) {
-          token_status.value = error.response.status
-          errorMsg.value = error.response.data.detail;
-        } else if (error.response.status === 403) {
-            token_status.value = error.response.status
-            errorMsg.value = error.response.data.detail;
-        }
-    }
-};
-// Función para manejar el cierre de sesión
-function logout() {
-  localStorage.clear();
-  router.push('/'); // Redirigir al login
-};
-function redirigir_dashboard() {
-  router.push('/dashboard'); // Redirigir al dashboard
+    );
 };
 
-// Código que se ejecuta al montar el componente
+function logout() { router.push('/'); };
+function redirigir_dashboard() { router.push('/dashboard'); };
+
 onMounted(() => {
-
     modalInstance.value = new Modal(exitoModal);
     modalErrorInstance.value = new Modal(errorModal);
-    if (!token) {
-        router.push('/'); // Redirigir al login si no hay token
-    }
-    // Cargar los datos para los select inputs cuando se monta el componente
-    cargarDatos();
 });
 
 </script>

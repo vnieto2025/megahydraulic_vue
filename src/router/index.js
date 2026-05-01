@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { useAuthStore } from '../stores/auth.js'
 import LoginView from '@/views/LoginView.vue'
 import DashboardView from '@/views/DashboardView.vue';
 import CreateReportView from '@/views/CreateReportView.vue';
@@ -45,17 +46,15 @@ const router = createRouter({
 })
 
 router.beforeEach((to, from, next) => {
+  // useAuthStore() se llama aquí dentro (en runtime), cuando Pinia ya está instalada
+  const auth = useAuthStore();
 
-  const token = localStorage.getItem('token');
-  // Si no se requiere autenticación (por ejemplo, en la ruta de login), continúa
   if (to.path === '/' || to.name === 'login') {
     next();
   } else {
-    // Si se requiere autenticación y no hay token, redirigir al login
-    if (!token) {
-      next({ name: 'login' }); // Redirigir a la ruta de login si no hay token
+    if (!auth.isAuthenticated) {
+      next({ name: 'login' });
     } else {
-      // Si hay token, permitir la navegación
       next();
     }
   }

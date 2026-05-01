@@ -39,53 +39,28 @@
 </template>
 
 <script setup>
-import apiUrl from "../../config.js";
 import { ref } from "vue";
 import { useRouter } from "vue-router";
-import axios from "axios";
+import http from "../api/http.js";
+import { useAuthStore } from "../stores/auth.js";
 import logo from "@/assets/icons/logo.jpg";
 
-// Variables reactivas
 const document = ref("");
 const password = ref("");
 const error = ref("");
 const fecha = new Date().getFullYear();
-const apiProdUrl = "";
 const router = useRouter();
+const auth = useAuthStore();
 
-// Función de inicio de sesión
 const login = async () => {
   try {
-    const response = await axios.post(
-      `${apiUrl}/login`,
-      {
-        document: document.value.toString(),
-        password: password.value,
-      },
-      {
-        headers: {
-          Accept: "application/json",
-        },
-      }
-    );
+    const response = await http.post('/login', {
+      document: document.value.toString(),
+      password: password.value,
+    });
 
     if (response.status === 200) {
-      const token = response.data.data.token;
-      const first_name = response.data.data.first_name;
-      const last_name = response.data.data.last_name;
-      const user_type_id = response.data.data.user_type_id;
-      const user_id = response.data.data.id;
-      const permissions = JSON.stringify(response.data.data.permission);
-      const photo = response.data.data.photo;
-
-      localStorage.setItem("token", token);
-      localStorage.setItem("first_name", first_name);
-      localStorage.setItem("last_name", last_name);
-      localStorage.setItem("user_type_id", user_type_id);
-      localStorage.setItem("user_id", user_id);
-      localStorage.setItem("permissions", permissions);
-      localStorage.setItem("photo", photo);
-
+      auth.setSession(response.data.data);
       router.push("/dashboard");
     }
   } catch (err) {

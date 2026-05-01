@@ -103,13 +103,15 @@
 </template>
 
 <script setup>
-import apiUrl from "../../config.js";
 import { ref, onMounted } from 'vue';
 import LayoutView from '../views/Layouts/LayoutView.vue';
-import axios from 'axios';
 import { Modal } from 'bootstrap';
 import { useRouter } from 'vue-router';
+import { useAuthStore } from '../stores/auth.js';
+import { useChangePassword } from '../composables/useUsers.js';
 
+const auth = useAuthStore();
+const router = useRouter();
 
 const currentPassword = ref('');
 const newPassword = ref('');
@@ -118,86 +120,54 @@ const showCurrentPassword = ref(false);
 const showNewPassword = ref(false);
 const showConfirmPassword = ref(false);
 
-const token = localStorage.getItem('token');
-const user_id = localStorage.getItem('user_id');
-
 const modalInstance = ref(null);
 const modalErrorInstance = ref(null);
 const msg = ref('');
-const error = ref('');
 const errorMsg = ref('');
 const token_status = ref(0);
 
-const router = useRouter();
+const { mutate: changePassword } = useChangePassword();
 
-const toggleShow = async (field) => {
+const toggleShow = (field) => {
     if (field === "current") showCurrentPassword.value = !showCurrentPassword.value;
     if (field === "new") showNewPassword.value = !showNewPassword.value;
     if (field === "confirm") showConfirmPassword.value = !showConfirmPassword.value;
 };
 
-const cambiarPassword = async () => {
+const cambiarPassword = () => {
     if (newPassword.value !== confirmPassword.value) {
-        errorMsg.value = "La nueva contraseña y la confirmación no coinciden."
-        modalErrorInstance.value.show()
+        errorMsg.value = "La nueva contraseña y la confirmación no coinciden.";
+        modalErrorInstance.value.show();
         return;
     }
-    try {
-        if (!token) {
-            router.push('/'); // Redirigir al login si no hay token
-        }
-        const response = await axios.post(
-            `${apiUrl}/user/change_password`, 
-            {
-                user_id: user_id,
-                current_password: currentPassword.value,
-                new_password: newPassword.value
+    changePassword(
+        {
+            user_id: auth.userId,
+            current_password: currentPassword.value,
+            new_password: newPassword.value
+        },
+        {
+            onSuccess: (response) => {
+                msg.value = response.data.message;
+                modalInstance.value.show();
             },
-            {
-                headers: {
-                    Accept: "application/json",
-                    Authorization: `Bearer ${token}`
-                }
+            onError: (err) => {
+                errorMsg.value = err.response?.data?.message || 'Error';
+                token_status.value = err.response?.status || 0;
+                if (err.response?.status === 401) errorMsg.value = err.response.data.detail;
+                else if (err.response?.status === 403) errorMsg.value = err.response.data.detail;
+                modalErrorInstance.value.show();
             }
-        );
-        if (response.status === 200) {
-            msg.value = response.data.message;
-            modalInstance.value.show();
         }
-
-    } catch (error) {
-        console.error('Error al cargar los datos:', error);
-        errorMsg.value = error.response.data.message;
-        modalErrorInstance.value.show()
-        if (error.response.status === 401) {
-          token_status.value = error.response.status
-          errorMsg.value = error.response.data.detail;
-        } else if (error.response.status === 403) {
-            token_status.value = error.response.status
-            errorMsg.value = error.response.data.detail;
-        }
-    }
-};
-// Función para manejar el cierre de sesión
-function logout() {
-  localStorage.clear();
-  router.push('/'); // Redirigir al login
+    );
 };
 
-function redirigir_dashboard() {
-  router.push('/dashboard'); // Redirigir al dashboard
-};
+function logout() { auth.clearSession(); router.push('/'); };
+function redirigir_dashboard() { router.push('/dashboard'); };
 
-// Código que se ejecuta al montar el componente
 onMounted(() => {
-
     modalInstance.value = new Modal(exitoModal);
     modalErrorInstance.value = new Modal(errorModal);
-    if (!token) {
-        router.push('/'); // Redirigir al login si no hay token
-    }
-    // Cargar los datos para los select inputs cuando se monta el componente
-    // cargarDatos();
 });
 
 </script>

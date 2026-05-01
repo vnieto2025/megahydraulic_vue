@@ -161,145 +161,96 @@
 </template>
 
 <script setup>
-import apiUrl from "../../config.js";
-import { ref, onMounted } from 'vue';
+import { ref, computed } from 'vue';
 import { useRouter } from "vue-router";
-import axios from 'axios';
 import { Modal } from 'bootstrap';
+import { onMounted } from 'vue';
 import LayoutView from '../views/Layouts/LayoutView.vue';
 import gestion from "@/assets/icons/gestion.png";
 import desactivar from "@/assets/icons/trash.svg";
 import activar from "@/assets/icons/activar.png";
+import { useAuthStore } from '../stores/auth.js';
+import { useClientList, useUpdateClient } from '../composables/useClients.js';
 
-const token = localStorage.getItem('token');
+const auth = useAuthStore();
+const router = useRouter();
+
 const msg = ref('');
-
-const clientes_list = ref([]);
+const errorMsg = ref('');
+const token_status = ref(0);
 const cliente_name = ref('');
 const cliente_id = ref('');
-const total_paginas = ref(0);
-const total_registros = ref(0);
 const estado = ref(0);
-
+const pregunta = ref('');
 const limit = ref(10);
 const position = ref(1);
-
-const errorMsg = ref('');
-const msgList = ref('');
-const pregunta = ref('');
 
 const modalInstanceExito  = ref(null);
 const modalInstancePregunta = ref(null);
 const modalErrorInstance  = ref(null);
 const modalInstanceEditar   = ref(null);
-const token_status = ref(0);
 
-const router = useRouter();
+// --- TanStack Query ---
+const { data: clientesData, isError, error: queryError } = useClientList(limit, position);
 
-const get_clients = async () => {
-  try {
-    const response = await axios.post(
-        `${apiUrl}/client/list_client`, 
-        {
-            limit: parseInt(limit.value),
-            position: position.value
+const clientes_list = computed(() => clientesData.value?.clientes ?? []);
+const total_paginas = computed(() => clientesData.value?.total_pag ?? 0);
+
+const { mutate: updateClient, isPending: isUpdating } = useUpdateClient();
+
+const changePage = (newPosition) => {
+    position.value = newPosition;
+};
+
+const modalConfirm = (data_cliente) => {
+    pregunta.value = data_cliente.status == 1
+        ? '¿Seguro desea desactivar el cliente: '
+        : '¿Seguro desea activar el cliente: ';
+    cliente_id.value = data_cliente.id;
+    estado.value = data_cliente.status;
+    modalInstancePregunta.value.show();
+};
+
+const gestionCliente = (data_update) => {
+    updateClient(data_update, {
+        onSuccess: (response) => {
+            modalInstanceEditar.value.hide();
+            modalInstancePregunta.value.hide();
+            msg.value = response.data.message;
+            modalInstanceExito.value.show();
         },
-        {
-            headers: {
-                Accept: "application/json",
-                Authorization: `Bearer ${token}`
+        onError: (error) => {
+            modalInstanceEditar.value.hide();
+            modalInstancePregunta.value.hide();
+            errorMsg.value = error.response?.data?.message || 'Error inesperado';
+            if (error.response?.status === 401) {
+                token_status.value = 401;
+                errorMsg.value = error.response.data.detail;
+            } else if (error.response?.status === 403) {
+                token_status.value = 403;
+                errorMsg.value = error.response.data.detail;
             }
-        }
-    );
-
-    if (response.status === 200) {
-        msgList.value = response.data.message;
-        clientes_list.value = response.data.data.clientes;
-        total_paginas.value = response.data.data.total_pag;
-        total_registros.value = response.data.data.total_registros;
-        position.value = response.data.data.posicion_pag;
-    }
-
-  } catch (error) {
-      console.error('Error al cargar los datos:', error);
-      modalErrorInstance.value.show();
-      errorMsg.value = error.response.data.message;
-      if (error.response.status === 401) {
-        token_status.value = error.response.status
-        errorMsg.value = error.response.data.detail;
-      } else if (error.response.status === 403) {
-        token_status.value = error.response.status
-        errorMsg.value = error.response.data.detail;
-      }
-  }
-}
-const changePage = async (newPosition) => {
-  position.value = newPosition;
-  await get_clients(); // Vuelve a cargar los datos con el nuevo límite y posición
+            modalErrorInstance.value.show();
+        },
+    });
 };
-const modalConfirm = async (data_cliente) => {
-  if (data_cliente.status == 1){
-    pregunta.value = "¿Seguro desea desactivar el cliente: "
-  }else{
-    pregunta.value = "¿Seguro desea activar el cliente: "
-  }
-  modalInstancePregunta.value.show();
-  cliente_id.value = data_cliente.id;
-  estado.value = data_cliente.status;
-};
-const gestionCliente = async (data_update) => {
-  try {
-    const response = await axios.post(
-        `${apiUrl}/client/update_client`, 
-        data_update,
-        {
-            headers: {
-                Accept: "application/json",
-                Authorization: `Bearer ${token}`
-            }
-        }
-    );
-    modalInstanceEditar.value.hide();
-    modalInstancePregunta.value.hide();
-    if (response.status === 200) {
-        msg.value = response.data.message;
-        modalInstanceExito.value.show();
-        await get_clients();
-    }
 
-  } catch (error) {
-      console.error('Error al cargar los datos:', error);
-      modalErrorInstance.value.show();
-      errorMsg.value = error.response.data.message;
-      if (error.response.status === 401) {
-        token_status.value = error.response.status
-        errorMsg.value = error.response.data.detail;
-      } else if (error.response.status === 403) {
-        token_status.value = error.response.status
-        errorMsg.value = error.response.data.detail;
-      }
-  }
-};
-// Función para manejar el cierre de sesión
 function logout() {
-  localStorage.clear();
-  router.push('/'); // Redirigir al login
-};
+    auth.clearSession();
+    router.push('/');
+}
 function redirigir_dashboard() {
-  router.push('/dashboard'); // Redirigir al dashboard
-};
+    router.push('/dashboard');
+}
 
-// Código que se ejecuta al montar el componente
 onMounted(() => {
     modalInstanceExito.value = new Modal(exitoModal);
     modalInstancePregunta.value = new Modal(preguntaModal);
     modalErrorInstance.value = new Modal(errorModal);
     modalInstanceEditar.value = new Modal(editModal);
-    if (!token) {
-        router.push('/'); // Redirigir al login si no hay token
+    if (!auth.isAuthenticated) {
+        router.push('/');
     }
-    // Cargar los datos para los select inputs cuando se monta el componente
-    get_clients();
 });
 </script>
 
