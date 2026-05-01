@@ -325,7 +325,18 @@
               <td data-label="Solped">{{ record.solped }}</td>
               <td data-label="oc">{{ record.oc }}</td>
               <td data-label="Posición">{{ record.position }}</td>
-              <td data-label="Hes">{{ record.hes }}</td>
+              <td data-label="Hes">
+                <input
+                  type="text"
+                  class="input-hes-inline"
+                  :value="record.hes || ''"
+                  :disabled="!!updatingStatus[record.id + '_hes']"
+                  @input="onHesInput(record, $event)"
+                  @paste="onHesPaste(record)"
+                  @blur="onHesBlur(record, $event)"
+                  placeholder="-"
+                >
+              </td>
               <td data-label="Estado">
                 <select
                   :value="record.service_status"
@@ -589,6 +600,60 @@ const isConverting = ref(false);
 const selectedRecords = ref([]);
 const isConvertingMasivo = ref(false);
 const updatingStatus = ref({});
+const hesTimers = ref({});
+const hesIsPasting = ref({});
+
+const saveHes = async (record, value) => {
+    const key = `${record.id}_hes`;
+    updatingStatus.value[key] = true;
+    try {
+        await axios.post(
+            `${apiUrl}/service_control/update_inline_status`,
+            { record_id: record.id, hes: value.trim() || null },
+            { headers: { Accept: "application/json", Authorization: `Bearer ${token}` } }
+        );
+        record.hes = value.trim() || null;
+    } catch (error) {
+        console.error('Error al actualizar HES:', error);
+        errorMsg.value = error.response?.data?.message || 'Error al actualizar el HES';
+        if (error.response?.status === 401) {
+            token_status.value = 401;
+            errorMsg.value = error.response.data.detail;
+        } else if (error.response?.status === 403) {
+            token_status.value = 403;
+            errorMsg.value = error.response.data.detail;
+        }
+        modalErrorInstance.value.show();
+    } finally {
+        updatingStatus.value[key] = false;
+    }
+};
+
+const scheduleHesUpdate = (record, value, delay) => {
+    if (hesTimers.value[record.id]) clearTimeout(hesTimers.value[record.id]);
+    hesTimers.value[record.id] = setTimeout(() => {
+        delete hesTimers.value[record.id];
+        saveHes(record, value);
+    }, delay);
+};
+
+const onHesInput = (record, event) => {
+    const delay = hesIsPasting.value[record.id] ? 100 : 1200;
+    hesIsPasting.value[record.id] = false;
+    scheduleHesUpdate(record, event.target.value, delay);
+};
+
+const onHesPaste = (record) => {
+    hesIsPasting.value[record.id] = true;
+};
+
+const onHesBlur = (record, event) => {
+    if (hesTimers.value[record.id]) {
+        clearTimeout(hesTimers.value[record.id]);
+        delete hesTimers.value[record.id];
+        saveHes(record, event.target.value);
+    }
+};
 
 const updateInlineStatus = async (record, field, newValue) => {
     const key = `${record.id}_${field === 'service_status' ? 'service' : 'report'}`;
@@ -1676,6 +1741,33 @@ html {
 }
 
 .select-inline:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.input-hes-inline {
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 0.78rem;
+  background-color: transparent;
+  width: 90px;
+  transition: border-color 0.2s, background-color 0.2s;
+}
+
+.input-hes-inline:hover {
+  border-color: #ced4da;
+  background-color: #fff;
+}
+
+.input-hes-inline:focus {
+  outline: none;
+  border-color: #2a475f;
+  background-color: #fff;
+  box-shadow: 0 0 0 2px rgba(42,71,95,0.15);
+}
+
+.input-hes-inline:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
