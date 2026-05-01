@@ -367,8 +367,28 @@
                 </router-link>
                 <span v-else>-</span>
               </td>
-              <td data-label="Factura">{{ record.invoice || '-' }}</td>
-              <td data-label="Fecha Facturación">{{ record.invoice_date }}</td>
+              <td data-label="Factura">
+                <input
+                  type="text"
+                  class="input-hes-inline"
+                  :value="record.invoice || ''"
+                  :disabled="!!updatingStatus[record.id + '_invoice']"
+                  @input="onInvoiceInput(record, $event)"
+                  @paste="onInvoicePaste(record)"
+                  @blur="onInvoiceBlur(record, $event)"
+                  placeholder="-"
+                >
+              </td>
+              <td data-label="Fecha Facturación">
+                <input
+                  type="date"
+                  class="input-hes-inline"
+                  :value="toInputDate(record.invoice_date)"
+                  :disabled="!!updatingStatus[record.id + '_invoice_date']"
+                  @change="onInvoiceDateChange(record, $event)"
+                  style="width: 130px;"
+                >
+              </td>
               <td data-label="Valor">{{ record.valor_formateado  }}</td>
               <td data-label="Acciones" class="th-icons">
                 <router-link :to="`/service-control/edit/${record.id}`" class="icon-btn">
@@ -760,6 +780,75 @@ const onHesBlur = (record, event) => {
         saveHes(record, event.target.value);
     }
 };
+
+// ── Factura inline ────────────────────────────────────────────────────────────
+const invoiceTimers = ref({});
+const invoiceIsPasting = ref({});
+
+const saveInvoice = (record, value) => {
+    const key = `${record.id}_invoice`;
+    updatingStatus.value[key] = true;
+    updateInlineStatusMutate(
+        { record_id: record.id, invoice: value.trim() || null },
+        {
+            onSuccess: () => { record.invoice = value.trim() ? parseInt(value.trim()) : null; },
+            onError: (err) => {
+                errorMsg.value = err.response?.data?.message || 'Error al actualizar la factura';
+                modalErrorInstance.value.show();
+            },
+            onSettled: () => { updatingStatus.value[key] = false; },
+        }
+    );
+};
+const scheduleInvoiceUpdate = (record, value, delay) => {
+    if (invoiceTimers.value[record.id]) clearTimeout(invoiceTimers.value[record.id]);
+    invoiceTimers.value[record.id] = setTimeout(() => {
+        delete invoiceTimers.value[record.id];
+        saveInvoice(record, value);
+    }, delay);
+};
+const onInvoiceInput = (record, event) => {
+    const delay = invoiceIsPasting.value[record.id] ? 100 : 1200;
+    invoiceIsPasting.value[record.id] = false;
+    scheduleInvoiceUpdate(record, event.target.value, delay);
+};
+const onInvoicePaste = (record) => { invoiceIsPasting.value[record.id] = true; };
+const onInvoiceBlur = (record, event) => {
+    if (invoiceTimers.value[record.id]) {
+        clearTimeout(invoiceTimers.value[record.id]);
+        delete invoiceTimers.value[record.id];
+        saveInvoice(record, event.target.value);
+    }
+};
+
+// ── Fecha Facturación inline ──────────────────────────────────────────────────
+const toInputDate = (val) => {
+    if (!val) return '';
+    const m = val.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+    return m ? `${m[3]}-${m[2]}-${m[1]}` : val;
+};
+const fromInputDate = (val) => {
+    if (!val) return null;
+    const m = val.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    return m ? `${m[3]}-${m[2]}-${m[1]}` : val;
+};
+const saveInvoiceDate = (record, value) => {
+    const key = `${record.id}_invoice_date`;
+    updatingStatus.value[key] = true;
+    const formatted = fromInputDate(value);
+    updateInlineStatusMutate(
+        { record_id: record.id, invoice_date: formatted },
+        {
+            onSuccess: () => { record.invoice_date = formatted; },
+            onError: (err) => {
+                errorMsg.value = err.response?.data?.message || 'Error al actualizar la fecha de facturación';
+                modalErrorInstance.value.show();
+            },
+            onSettled: () => { updatingStatus.value[key] = false; },
+        }
+    );
+};
+const onInvoiceDateChange = (record, event) => { saveInvoiceDate(record, event.target.value); };
 
 const updateInlineStatus = (record, field, newValue) => {
     const key = `${record.id}_${field === 'service_status' ? 'service' : 'report'}`;
