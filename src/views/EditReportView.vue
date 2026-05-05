@@ -241,6 +241,7 @@
 import { ref, computed, watch, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import LayoutView from '../views/Layouts/LayoutView.vue';
+import apiUrl from '../../config.js';
 import { Modal } from 'bootstrap';
 import { useAuthStore } from '../stores/auth.js';
 import {
