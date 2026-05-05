@@ -3,6 +3,7 @@
  * Usan staleTime alto porque son datos casi estáticos.
  * Se cachean automáticamente y se comparten entre todas las vistas que los usen.
  */
+import { computed } from 'vue';
 import { useQuery } from '@tanstack/vue-query';
 import { paramsApi } from '../api/params.js';
 
@@ -21,7 +22,7 @@ export function useParamLinesByClient(clientId) {
     return useQuery({
         queryKey: ['params', 'lines', clientId],
         queryFn: () => paramsApi.getLinesByClient(clientId.value ?? clientId).then(r => r.data.data || []),
-        enabled: !!(clientId?.value ?? clientId),
+        enabled: computed(() => !!(clientId?.value ?? clientId)),
         staleTime: STALE_5MIN,
     });
 }
@@ -30,7 +31,7 @@ export function useParamUsersByClient(clientId) {
     return useQuery({
         queryKey: ['params', 'users-by-client', clientId],
         queryFn: () => paramsApi.getUsersByClient(clientId.value ?? clientId).then(r => r.data.data || []),
-        enabled: !!(clientId?.value ?? clientId),
+        enabled: computed(() => !!(clientId?.value ?? clientId)),
         staleTime: STALE_5MIN,
     });
 }
@@ -95,7 +96,7 @@ export function useParamTasksByEquipment(equipmentId) {
     return useQuery({
         queryKey: ['params', 'tasks-by-equipment', equipmentId],
         queryFn: () => paramsApi.getTasksByEquipment(equipmentId.value ?? equipmentId).then(r => r.data.data || []),
-        enabled: !!(equipmentId?.value ?? equipmentId),
+        enabled: computed(() => !!(equipmentId?.value ?? equipmentId)),
         staleTime: STALE_5MIN,
     });
 }
