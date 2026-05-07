@@ -20,7 +20,7 @@ export const serviceControlApi = {
         http.post('/service_control/convert_to_report', { record_id: recordId }),
 
     convertMultiple: (recordIds) =>
-        http.post('/service_control/convert_multiple', { record_ids: recordIds }),
+        http.post('/service_control/convert_multiple_to_report', { record_ids: recordIds }),
 
     changeStatus: (recordId) =>
         http.post('/service_control/change_status', { record_id: recordId }),
