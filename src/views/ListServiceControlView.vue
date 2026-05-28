@@ -544,6 +544,8 @@ import { useMutation } from '@tanstack/vue-query';
 
 const auth = useAuthStore();
 const router = useRouter();
+const user_type_id = computed(() => parseInt(auth.userTypeId));
+const token_status = ref(0);
 
 // ── Filtros ───────────────────────────────────────────────────────────────────
 const filters = ref({
@@ -941,6 +943,13 @@ const cambiarEstado = () => {
             onError: (err) => {
                 modalInstancePregunta.value.hide();
                 errorMsg.value = err.response?.data?.message || 'Error inesperado';
+                if (err.response?.status === 401) {
+                    token_status.value = 401;
+                    errorMsg.value = err.response.data.detail;
+                } else if (err.response?.status === 403) {
+                    token_status.value = 403;
+                    errorMsg.value = err.response.data.detail;
+                }
                 modalErrorInstance.value.show();
             },
         }
