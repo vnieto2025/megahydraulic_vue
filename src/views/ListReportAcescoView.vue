@@ -248,11 +248,11 @@ import desactivar from "@/assets/icons/trash.svg";
 import { Modal } from 'bootstrap';
 import { useAuthStore } from '../stores/auth.js';
 import { useParamClients } from '../composables/useParams.js';
-import { useReportAcescoList, useGenerateReportAcesco, useGenerateMultipleReportsAcesco } from '../composables/useReportsAcesco.js';
-import { useChangeStatusReport } from '../composables/useReports.js';
+import { useReportAcescoList, useGenerateReportAcesco, useGenerateMultipleReportsAcesco, useChangeStatusReportAcesco } from '../composables/useReportsAcesco.js';
 
 const auth = useAuthStore();
 const router = useRouter();
+const user_type_id = computed(() => parseInt(auth.userTypeId));
 
 const filters = ref({
   om: '',
@@ -293,7 +293,7 @@ const client_list = computed(() => clientsParamData.value ?? []);
 
 const { mutate: generateReport } = useGenerateReportAcesco();
 const { mutate: generateMultiple } = useGenerateMultipleReportsAcesco();
-const { mutate: changeStatus } = useChangeStatusReport();
+const { mutate: changeStatus } = useChangeStatusReportAcesco();
 
 const addSolped = () => {
     if (currentSolped.value.trim()) {

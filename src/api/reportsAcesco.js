@@ -18,4 +18,7 @@ export const reportsAcescoApi = {
 
     generateMultiple: (reportIds) =>
         http.post('/reports/generate_multiple_reports_acesco', { report_ids: reportIds }, { responseType: 'blob' }),
+
+    changeStatus: (reportId) =>
+        http.post('/reports/change_status_report_acesco', { report_id: reportId }),
 };

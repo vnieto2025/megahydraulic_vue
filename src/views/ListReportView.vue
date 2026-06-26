@@ -252,6 +252,7 @@ import { useReportList, useGenerateReport, useGenerateMultipleReports, useChange
 
 const auth = useAuthStore();
 const router = useRouter();
+const user_type_id = computed(() => parseInt(auth.userTypeId));
 
 const filters = ref({
   om: '',

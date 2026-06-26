@@ -40,3 +40,13 @@ export function useGenerateMultipleReportsAcesco() {
         mutationFn: (reportIds) => reportsAcescoApi.generateMultiple(reportIds),
     });
 }
+
+export function useChangeStatusReportAcesco() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (reportId) => reportsAcescoApi.changeStatus(reportId),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['reports-acesco', 'list'] });
+        },
+    });
+}

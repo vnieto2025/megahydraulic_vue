@@ -291,7 +291,10 @@
               <th>Componente</th>
               <th>Solped</th>
               <th>OC</th>
-              <th>Posición</th>
+              <th class="th-sortable" @click="toggleSortPosition">
+                Posición
+                <span class="sort-arrow">{{ positionSortArrow }}</span>
+              </th>
               <th>HES</th>
               <th>Estado</th>
               <th>Informe</th>
@@ -568,11 +571,33 @@ const filters = ref({
 const limit = ref(50);
 const position = ref(1);
 
+// ── Ordenamiento ──────────────────────────────────────────────────────────────
+const orderBy = ref(null);
+const orderDir = ref(null);
+const positionSortArrow = computed(() => {
+    if (orderBy.value !== 'position') return '⇕';
+    return orderDir.value === 'asc' ? '▲' : '▼';
+});
+const toggleSortPosition = () => {
+    if (orderBy.value !== 'position') {
+        orderBy.value = 'position';
+        orderDir.value = 'asc';
+    } else if (orderDir.value === 'asc') {
+        orderDir.value = 'desc';
+    } else {
+        orderBy.value = null;
+        orderDir.value = null;
+    }
+    position.value = 1;
+};
+
 // ── Payload reactivo ──────────────────────────────────────────────────────────
 const payload = computed(() => ({
     limit: parseInt(limit.value),
     position: position.value,
     filters: filters.value,
+    order_by: orderBy.value,
+    order_dir: orderDir.value,
 }));
 
 // ── Query principal ───────────────────────────────────────────────────────────
@@ -1159,6 +1184,21 @@ html {
   position: sticky;
   top: 0;
   z-index: 1;
+}
+
+.th-sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.th-sortable:hover {
+  background-color: #1c3342;
+}
+
+.sort-arrow {
+  margin-left: 4px;
+  font-size: 0.7rem;
+  opacity: 0.85;
 }
 
 .container-list tbody td {
