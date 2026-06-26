@@ -196,7 +196,7 @@ const modalInstanceEditar   = ref(null);
 const router = useRouter();
 
 const { data: tipoUserData } = useParamTypeUser();
-const tipo_usuario_list = computed(() => tipoUserData.value?.data?.data ?? []);
+const tipo_usuario_list = computed(() => tipoUserData.value ?? []);
 
 const { data: usersData, refetch: refetchUsers } = useUserList(limit, position);
 const usuarios_list = computed(() => usersData.value?.usuarios ?? []);

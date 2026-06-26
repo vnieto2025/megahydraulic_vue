@@ -111,7 +111,7 @@ const errorMsg = ref('');
 const token_status = ref(0);
 
 const { data: clientsData } = useParamClients();
-const client_list = computed(() => clientsData.value?.data?.data ?? []);
+const client_list = computed(() => clientsData.value ?? []);
 
 const { mutate: addLinePerson } = useAddLinePerson();
 

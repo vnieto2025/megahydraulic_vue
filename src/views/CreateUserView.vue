@@ -122,8 +122,8 @@ const router = useRouter();
 
 const { data: tipoDocData } = useParamTypeDocument();
 const { data: tipoUserData } = useParamTypeUser();
-const tipo_documento_list = computed(() => tipoDocData.value?.data?.data ?? []);
-const tipo_usuario_list = computed(() => tipoUserData.value?.data?.data ?? []);
+const tipo_documento_list = computed(() => tipoDocData.value ?? []);
+const tipo_usuario_list = computed(() => tipoUserData.value ?? []);
 
 const { mutate: createUser } = useCreateUser();
 
