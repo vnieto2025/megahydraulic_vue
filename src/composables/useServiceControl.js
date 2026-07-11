@@ -79,3 +79,13 @@ export function useChangeStatusServiceControl() {
         },
     });
 }
+
+export function useDeleteScFile() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ fileId, serviceControlId }) => serviceControlApi.deleteScFile(fileId, serviceControlId),
+        onSuccess: (_data, variables) => {
+            queryClient.invalidateQueries({ queryKey: ['service-control', 'detail', variables.serviceControlId] });
+        },
+    });
+}

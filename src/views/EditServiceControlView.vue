@@ -147,6 +147,64 @@
 
             <hr>
 
+            <!-- Fotos existentes -->
+            <div class="fotos-section">
+                <div class="fotos-header">
+                    <h5 class="fotos-title">Fotos</h5>
+                    <button type="button" class="btn-add-foto" @click="abrirSelectorFoto">
+                        + Agregar foto
+                    </button>
+                    <input
+                        ref="fotoInputRef"
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        style="display:none"
+                        @change="onFotosSeleccionadas"
+                    >
+                </div>
+
+                <div v-if="fotosExistentes.length > 0 || fotosNuevas.length > 0" class="fotos-grid">
+                    <!-- Fotos ya guardadas -->
+                    <div v-for="foto in fotosExistentes" :key="foto.id" class="foto-card">
+                        <img
+                            :src="`${apiUrl}/${foto.path}`"
+                            class="foto-preview"
+                            alt="foto"
+                            @click="ampliarFoto(`${apiUrl}/${foto.path}`)"
+                        >
+                        <p class="foto-desc-text">{{ foto.description || '' }}</p>
+                        <button
+                            type="button"
+                            class="btn-remove-foto"
+                            @click="eliminarFotoExistente(foto)"
+                            title="Eliminar foto"
+                        >✕</button>
+                    </div>
+                    <!-- Fotos nuevas (aún no guardadas) -->
+                    <div v-for="(foto, index) in fotosNuevas" :key="'new-' + index" class="foto-card foto-card--nueva">
+                        <img :src="foto.img" class="foto-preview" alt="nueva foto">
+                        <input
+                            type="text"
+                            class="foto-desc"
+                            v-model="foto.description"
+                            placeholder="Descripción (opcional)"
+                        >
+                        <button type="button" class="btn-remove-foto" @click="fotosNuevas.splice(index, 1)">✕</button>
+                        <span class="badge-nueva">Nueva</span>
+                    </div>
+                </div>
+                <p v-else class="fotos-empty">Sin fotos.</p>
+            </div>
+
+            <!-- Modal ampliar imagen -->
+            <div v-if="fotoAmpliada" class="foto-overlay" @click="fotoAmpliada = null">
+                <img :src="fotoAmpliada" class="foto-ampliada" @click.stop>
+                <button class="btn-close-overlay" @click="fotoAmpliada = null">✕</button>
+            </div>
+
+            <hr>
+
             <button type="submit" class="btn btn-primary mt-3" :disabled="isLoading">
                 <span v-if="isLoading" class="spinner-border spinner-border-sm"></span>
                 {{ isLoading ? 'Guardando...' : 'Guardar cambios' }}
@@ -201,6 +259,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue';
+import { useQueryClient } from '@tanstack/vue-query';
 import { useRouter, useRoute } from 'vue-router';
 import LayoutView from '../views/Layouts/LayoutView.vue';
 import { Modal } from 'bootstrap';
@@ -209,12 +268,14 @@ import {
     useParamClients, useParamLinesByClient, useParamUsersByClient,
     useParamServiceStatuses, useParamReportStatuses, useParamComponents,
 } from '../composables/useParams.js';
-import { useServiceControl, useUpdateServiceControl } from '../composables/useServiceControl.js';
+import { useServiceControl, useUpdateServiceControl, useDeleteScFile } from '../composables/useServiceControl.js';
+import apiUrl from '../../config.js';
 
 const auth = useAuthStore();
 const router = useRouter();
 const route = useRoute();
 const record_id = route.params.id;
+const queryClient = useQueryClient();
 
 // ── Campos del formulario ─────────────────────────────────────────────────────
 const fecha = ref('');
@@ -248,6 +309,45 @@ const errorMsg = ref('');
 const modalInstance = ref(null);
 const modalErrorInstance = ref(null);
 
+// Consecutivo es de solo lectura cuando el SC ya está vinculado a un reporte
+const readonly = computed(() => !!recordData.value?.consecutive);
+
+// ── Fotos ─────────────────────────────────────────────────────────────────────
+const fotosExistentes = ref([]);
+const fotosNuevas = ref([]);
+const fotoInputRef = ref(null);
+const fotoAmpliada = ref(null);
+
+const abrirSelectorFoto = () => fotoInputRef.value.click();
+
+const onFotosSeleccionadas = (event) => {
+    Array.from(event.target.files).forEach(archivo => {
+        const reader = new FileReader();
+        reader.onload = (e) => fotosNuevas.value.push({ img: e.target.result, description: '' });
+        reader.readAsDataURL(archivo);
+    });
+    event.target.value = '';
+};
+
+const ampliarFoto = (src) => { fotoAmpliada.value = src; };
+
+const { mutate: deleteScFileMutate } = useDeleteScFile();
+
+const eliminarFotoExistente = (foto) => {
+    deleteScFileMutate(
+        { fileId: foto.id, serviceControlId: parseInt(record_id) },
+        {
+            onSuccess: () => {
+                fotosExistentes.value = fotosExistentes.value.filter(f => f.id !== foto.id);
+            },
+            onError: (err) => {
+                errorMsg.value = err.response?.data?.message || 'Error al eliminar la foto';
+                modalErrorInstance.value.show();
+            },
+        }
+    );
+};
+
 // ── Queries de parámetros ─────────────────────────────────────────────────────
 const { data: clientsParamData } = useParamClients();
 const client_list = computed(() => clientsParamData.value ?? []);
@@ -269,7 +369,16 @@ const component_list = computed(() => componentsData.value ?? []);
 
 // ── Carga datos del registro ──────────────────────────────────────────────────
 const recordIdRef = computed(() => record_id);
-const { data: recordData } = useServiceControl(recordIdRef);
+const { data: recordData, isError: queryError } = useServiceControl(recordIdRef);
+
+// Si la query falla, isLoadingData nunca llegaría a false sin este watch
+watch(queryError, (hasError) => {
+    if (hasError) {
+        isLoadingData.value = false;
+        errorMsg.value = 'No se pudo cargar el registro.';
+        modalErrorInstance.value?.show();
+    }
+});
 
 watch(recordData, (val) => {
     if (!val) return;
@@ -295,8 +404,10 @@ watch(recordData, (val) => {
     linea.value = val.client_line_id;
     responsable.value = val.responsible_id;
     gestor.value = val.gestor || '';
+    fotosExistentes.value = val.files ?? [];
+    fotosNuevas.value = [];
     isLoadingData.value = false;
-});
+}, { immediate: true });
 
 // ── Mutations ─────────────────────────────────────────────────────────────────
 const { mutate: updateServiceControlMutate } = useUpdateServiceControl();
@@ -336,10 +447,13 @@ const guardarCambios = () => {
             invoice_date: fechaFacturacionFormateada,
             note: nota.value,
             user_id: auth.userId,
+            fotos_nuevas: fotosNuevas.value.map(f => ({ img: f.img, description: f.description || null })),
         },
         {
             onSuccess: (response) => {
                 msg.value = response.data.message;
+                fotosNuevas.value = [];
+                queryClient.refetchQueries({ queryKey: ['service-control', 'detail'] });
                 modalInstance.value.show();
             },
             onError: (err) => {
@@ -439,4 +553,145 @@ hr {
     margin-top: 10px;
     margin-bottom: 20px;
 }
+
+/* ── Fotos ─────────────────────────────────────────────────────────────────── */
+.fotos-section { margin-top: 16px; }
+
+.fotos-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.fotos-title {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #2a475f;
+}
+
+.btn-add-foto {
+    background-color: #2a475f;
+    color: white;
+    padding: 6px 14px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+}
+
+.btn-add-foto:hover { background-color: #1c3342; }
+
+.fotos-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.foto-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 140px;
+}
+
+.foto-card--nueva { outline: 2px dashed #2a6496; border-radius: 6px; padding: 2px; }
+
+.foto-preview {
+    width: 140px;
+    height: 110px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    cursor: zoom-in;
+}
+
+.foto-desc-text {
+    font-size: 0.75rem;
+    color: #555;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.foto-desc {
+    padding: 3px 6px;
+    font-size: 0.78rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    width: 100%;
+}
+
+.btn-remove-foto {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: rgba(0,0,0,0.55);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 22px;
+    height: 22px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+
+.btn-remove-foto:hover { background: rgba(200,0,0,0.8); }
+
+.badge-nueva {
+    position: absolute;
+    bottom: 40px;
+    left: 4px;
+    background: #2a6496;
+    color: white;
+    font-size: 0.65rem;
+    padding: 1px 5px;
+    border-radius: 3px;
+}
+
+.fotos-empty { font-size: 0.85rem; color: #999; margin: 0; }
+
+/* ── Overlay ampliar ───────────────────────────────────────────────────────── */
+.foto-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.82);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.foto-ampliada {
+    max-width: 90vw;
+    max-height: 88vh;
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
+
+.btn-close-overlay {
+    position: fixed;
+    top: 20px;
+    right: 28px;
+    background: rgba(255,255,255,0.15);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    font-size: 1.1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-close-overlay:hover { background: rgba(255,255,255,0.3); }
 </style>

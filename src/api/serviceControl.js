@@ -33,4 +33,7 @@ export const serviceControlApi = {
 
     getSolpedList: (filters) =>
         http.post('/service_control/get_solped_list', { filters }),
+
+    deleteScFile: (fileId, serviceControlId) =>
+        http.post('/service_control/delete_sc_file', { file_id: fileId, service_control_id: serviceControlId }),
 };

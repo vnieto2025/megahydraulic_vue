@@ -143,6 +143,40 @@
 
             <hr>
 
+            <!-- Fotos dinámicas -->
+            <div class="fotos-section">
+                <div class="fotos-header">
+                    <h5 class="fotos-title">Fotos</h5>
+                    <button type="button" class="btn-add-foto" @click="abrirSelectorFoto">
+                        + Agregar foto
+                    </button>
+                    <input
+                        ref="fotoInputRef"
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        style="display:none"
+                        @change="onFotosSeleccionadas"
+                    >
+                </div>
+
+                <div v-if="fotos.length > 0" class="fotos-grid">
+                    <div v-for="(foto, index) in fotos" :key="index" class="foto-card">
+                        <img :src="foto.img" class="foto-preview" alt="foto">
+                        <input
+                            type="text"
+                            class="foto-desc"
+                            v-model="foto.description"
+                            placeholder="Descripción (opcional)"
+                        >
+                        <button type="button" class="btn-remove-foto" @click="eliminarFoto(index)">✕</button>
+                    </div>
+                </div>
+                <p v-else class="fotos-empty">Sin fotos agregadas.</p>
+            </div>
+
+            <hr>
+
             <button type="submit" class="btn btn-primary mt-3" :disabled="isLoading">
                 <span v-if="isLoading" class="spinner-border spinner-border-sm"></span>
                 {{ isLoading ? 'Guardando...' : 'Guardar' }}
@@ -240,6 +274,26 @@ const errorMsg = ref('');
 const modalInstance = ref(null);
 const modalErrorInstance = ref(null);
 
+// ── Fotos ─────────────────────────────────────────────────────────────────────
+const fotos = ref([]);
+const fotoInputRef = ref(null);
+
+const abrirSelectorFoto = () => fotoInputRef.value.click();
+
+const onFotosSeleccionadas = (event) => {
+    const archivos = Array.from(event.target.files);
+    archivos.forEach(archivo => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            fotos.value.push({ img: e.target.result, description: '' });
+        };
+        reader.readAsDataURL(archivo);
+    });
+    event.target.value = '';
+};
+
+const eliminarFoto = (index) => fotos.value.splice(index, 1);
+
 // ── Queries de parámetros ─────────────────────────────────────────────────────
 const { data: clientsParamData } = useParamClients();
 const client_list = computed(() => clientsParamData.value ?? []);
@@ -296,6 +350,7 @@ const guardarServicio = () => {
             invoice_date: fecha_facturacion_formateada,
             note: nota.value,
             user_id: auth.userId,
+            fotos: fotos.value.map(f => ({ img: f.img, description: f.description || null })),
         },
         {
             onSuccess: (response) => {
@@ -320,6 +375,7 @@ function limpiarFormulario() {
     cantidad_componentes.value = 0; valor.value = 0; solped.value = ''; oc.value = '';
     posicion.value = ''; estado.value = ''; informe.value = ''; consecutivo.value = '';
     factura.value = 0; fecha_facturacion.value = ''; nota.value = '';
+    fotos.value = [];
 }
 
 function logout() { auth.clearSession(); router.push('/'); }
@@ -385,6 +441,97 @@ button {
 hr {
     margin-top: 10px;
     margin-bottom: 20px;
+}
+
+/* ── Fotos ─────────────────────────────────────────────────────────────────── */
+.fotos-section {
+    margin-top: 16px;
+}
+
+.fotos-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.fotos-title {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #2a475f;
+}
+
+.btn-add-foto {
+    background-color: #2a475f;
+    color: white;
+    padding: 6px 14px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+}
+
+.btn-add-foto:hover {
+    background-color: #1c3342;
+}
+
+.fotos-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.foto-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 140px;
+}
+
+.foto-preview {
+    width: 140px;
+    height: 110px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+}
+
+.foto-desc {
+    padding: 3px 6px;
+    font-size: 0.78rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    width: 100%;
+}
+
+.btn-remove-foto {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: rgba(0,0,0,0.55);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 22px;
+    height: 22px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+
+.btn-remove-foto:hover {
+    background: rgba(200,0,0,0.8);
+}
+
+.fotos-empty {
+    font-size: 0.85rem;
+    color: #999;
+    margin: 0;
 }
 
 </style>
