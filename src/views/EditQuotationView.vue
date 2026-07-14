@@ -1,0 +1,682 @@
+<template>
+    <LayoutView>
+        <!-- Cabecera con volver y badge número -->
+        <div class="page-header">
+            <button type="button" class="btn-volver" @click="router.back()">← Volver</button>
+            <div class="nro-preview" v-if="quotation_number">
+                <span class="nro-label">N° Cotización:</span>
+                <span class="nro-valor">{{ quotation_number }}</span>
+            </div>
+        </div>
+
+        <div v-if="isLoadingDetail" class="loading-state">Cargando cotización...</div>
+
+        <form v-else @submit.prevent="guardarEdicion">
+            <h2>Editar Cotización</h2>
+
+            <!-- ── Datos generales ──────────────────────────────────────────── -->
+            <div class="seccion-titulo">Datos Generales</div>
+
+            <div class="row g-3">
+                <div class="col-md-4 form-group">
+                    <label>Ciudad:</label>
+                    <input type="text" v-model="ciudad" placeholder="Ej: Bogotá">
+                </div>
+                <div class="col-md-4 form-group">
+                    <label>Fecha:</label>
+                    <input type="date" v-model="fecha" required>
+                </div>
+                <div class="col-md-4 form-group">
+                    <label>Planta:</label>
+                    <input type="text" :value="plant_name" readonly class="input-readonly">
+                </div>
+            </div>
+
+            <div class="row g-3 mt-1">
+                <div class="col-md-4 form-group">
+                    <label>Señores (Cliente): <span class="req">*</span></label>
+                    <select v-model="cliente" @change="onClienteChange" required>
+                        <option value="" disabled>-- Seleccione --</option>
+                        <option v-for="c in client_list" :key="c.id" :value="c.id">{{ c.name }}</option>
+                    </select>
+                </div>
+                <div class="col-md-4 form-group">
+                    <label>Dirigido a (Responsable):</label>
+                    <select v-model="responsable" :disabled="!cliente">
+                        <option value="">-- Seleccione --</option>
+                        <option v-for="p in person_list" :key="p.id" :value="p.id">{{ p.name }}</option>
+                    </select>
+                </div>
+                <div class="col-md-4 form-group">
+                    <label>Área (Línea):</label>
+                    <select v-model="linea" :disabled="!cliente">
+                        <option value="">-- Seleccione --</option>
+                        <option v-for="l in line_list" :key="l.id" :value="l.id">{{ l.name }}</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="row g-3 mt-1">
+                <div class="col-md-4 form-group">
+                    <label>Cotizante:</label>
+                    <input type="text" value="MEGA HYDRAULIC S.A.S" readonly class="input-readonly">
+                </div>
+                <div class="col-md-4 form-group">
+                    <label>Teléfono:</label>
+                    <input type="text" v-model="telefono">
+                </div>
+                <div class="col-md-4 form-group">
+                    <label>NIT:</label>
+                    <input type="text" v-model="nit">
+                </div>
+            </div>
+
+            <div class="row g-3 mt-1">
+                <div class="col-12 form-group">
+                    <label>Alcance de la actividad:</label>
+                    <textarea v-model="alcance" rows="4"></textarea>
+                </div>
+            </div>
+
+            <div class="row g-3 mt-1">
+                <div class="col-md-4 form-group">
+                    <label>Tiempo de entrega:</label>
+                    <input type="text" v-model="tiempo_entrega">
+                </div>
+                <div class="col-md-4 form-group">
+                    <label>Descripción de la actividad:</label>
+                    <input type="text" v-model="descripcion_actividad">
+                </div>
+                <div class="col-md-4 form-group">
+                    <label>¿Dónde se ejecuta?:</label>
+                    <input type="text" v-model="donde_ejecuta">
+                </div>
+            </div>
+
+            <!-- ── Tabla de ítems ───────────────────────────────────────────── -->
+            <div class="seccion-titulo" style="margin-top:20px">Cuadro de Cantidades</div>
+
+            <div class="items-table-wrapper">
+                <table class="items-table">
+                    <thead>
+                        <tr>
+                            <th class="th-item">Ítem</th>
+                            <th class="th-sap">Cód. SAP</th>
+                            <th class="th-desc">Descripción</th>
+                            <th class="th-un">UN</th>
+                            <th class="th-cant">Cant.</th>
+                            <th class="th-vunit">Valor Unit.</th>
+                            <th class="th-vtotal">Valor Total</th>
+                            <th class="th-accion"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="(item, idx) in items" :key="item._id">
+                            <td class="td-center">{{ idx + 1 }}</td>
+                            <td><input v-model="item.codigo_sap" class="input-table input-sap" placeholder="—"></td>
+                            <td><input v-model="item.descripcion" class="input-table input-desc" placeholder="Descripción del servicio"></td>
+                            <td><input v-model="item.un" class="input-table input-un"></td>
+                            <td><input v-model.number="item.cant" type="number" min="0" class="input-table input-num"></td>
+                            <td><input v-model.number="item.valor_unit" type="number" min="0" class="input-table input-num"></td>
+                            <td class="td-total">{{ formatCurrency(itemTotal(item)) }}</td>
+                            <td class="td-accion">
+                                <button type="button" class="btn-remove-item" @click="removeItem(idx)" title="Eliminar fila">✕</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <!-- Logística -->
+                        <tr class="tr-fixed">
+                            <td colspan="2" class="td-label-fixed">Logística</td>
+                            <td class="td-fixed-name">LOGÍSTICA Y TRANSPORTE</td>
+                            <td><input v-model="logistica.un" class="input-table input-un"></td>
+                            <td><input v-model.number="logistica.cant" type="number" min="0" class="input-table input-num"></td>
+                            <td><input v-model.number="logistica.valor_unit" type="number" min="0" class="input-table input-num"></td>
+                            <td class="td-total">{{ formatCurrency((logistica.cant || 0) * (logistica.valor_unit || 0)) }}</td>
+                            <td></td>
+                        </tr>
+                        <!-- Recargos -->
+                        <tr class="tr-fixed">
+                            <td colspan="2" class="td-label-fixed">Recargos</td>
+                            <td class="td-fixed-name">TRABAJO EN ALTURA</td>
+                            <td><input v-model="recargos.un" class="input-table input-un"></td>
+                            <td><input v-model.number="recargos.cant" type="number" min="0" class="input-table input-num"></td>
+                            <td><input v-model.number="recargos.valor_unit" type="number" min="0" class="input-table input-num"></td>
+                            <td class="td-total">{{ formatCurrency((recargos.cant || 0) * (recargos.valor_unit || 0)) }}</td>
+                            <td></td>
+                        </tr>
+                        <!-- Subtotal -->
+                        <tr class="tr-subtotal">
+                            <td colspan="5" class="td-label-subtotal">SUBTOTAL</td>
+                            <td colspan="2" class="td-subtotal-valor">{{ formatCurrency(subtotal) }}</td>
+                            <td></td>
+                        </tr>
+                        <tr class="tr-subtotal">
+                            <td colspan="5" class="td-label-subtotal">SUBTOTAL + IVA (19%)</td>
+                            <td colspan="2" class="td-subtotal-valor">{{ formatCurrency(subtotalConIva) }}</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <div class="btn-add-row-wrapper">
+                <button type="button" class="btn-add-row" @click="addItem">+ Agregar fila</button>
+            </div>
+
+            <!-- Acciones -->
+            <div class="form-actions">
+                <button type="submit" :disabled="isLoading">
+                    {{ isLoading ? 'Guardando...' : 'Guardar cambios' }}
+                </button>
+            </div>
+        </form>
+
+        <!-- Modal éxito -->
+        <div class="modal fade" id="exitoModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" ref="exitoModal">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Cotización</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">{{ msg }}</div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-success" data-bs-dismiss="modal">Cerrar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal error -->
+        <div class="modal fade" id="errorModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" ref="errorModal">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Error</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">{{ errorMsg }}</div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </LayoutView>
+</template>
+
+<script setup>
+import { ref, computed, watch, onMounted } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { Modal } from 'bootstrap';
+import LayoutView from './Layouts/LayoutView.vue';
+import { useAuthStore } from '../stores/auth.js';
+import { useParamClients, useParamLinesByClient, useParamUsersByClient } from '../composables/useParams.js';
+import { useQuotationDetail, useEditQuotation } from '../composables/useQuotation.js';
+
+const auth = useAuthStore();
+const route = useRoute();
+const router = useRouter();
+
+const quotationId = computed(() => Number(route.params.id));
+
+// ── Modales ────────────────────────────────────────────────────────────────────
+const exitoModal = ref(null);
+const errorModal = ref(null);
+const modalInstanceExito = ref(null);
+const modalErrorInstance = ref(null);
+const msg = ref('');
+const errorMsg = ref('');
+const isLoading = ref(false);
+
+// ── Campos ─────────────────────────────────────────────────────────────────────
+const quotation_number = ref('');
+const plant_name = ref('');
+const ciudad = ref('');
+const fecha = ref('');
+const cliente = ref('');
+const responsable = ref('');
+const linea = ref('');
+const telefono = ref('');
+const nit = ref('');
+const alcance = ref('');
+const tiempo_entrega = ref('');
+const descripcion_actividad = ref('');
+const donde_ejecuta = ref('');
+
+// ── Carga detalle ──────────────────────────────────────────────────────────────
+const { data: detailData, isLoading: isLoadingDetail } = useQuotationDetail(quotationId);
+
+watch(detailData, (d) => {
+    if (!d) return;
+    quotation_number.value = d.quotation_number;
+    plant_name.value      = d.plant_name;
+    ciudad.value          = d.city || '';
+    fecha.value           = d.activity_date; // ya viene YYYY-MM-DD
+    cliente.value         = d.client_id;
+    responsable.value     = d.responsible_id || '';
+    linea.value           = d.client_line_id || '';
+    telefono.value        = d.phone || '';
+    nit.value             = d.nit || '';
+    alcance.value         = d.scope || '';
+    tiempo_entrega.value  = d.delivery_time || '';
+    descripcion_actividad.value = d.activity_description || '';
+    donde_ejecuta.value   = d.execution_place || '';
+
+    // Separar ítems por tipo
+    const rawItems = d.items || [];
+    let idCounter = 1;
+    items.value = rawItems
+        .filter(i => i.item_type === 'item')
+        .map(i => ({
+            _id: idCounter++,
+            codigo_sap: i.sap_code || '',
+            descripcion: i.description || '',
+            un: i.unit || 'UND',
+            cant: i.quantity,
+            valor_unit: i.unit_price,
+        }));
+
+    if (items.value.length === 0) items.value = [newItem()];
+
+    const log = rawItems.find(i => i.item_type === 'logistics');
+    if (log) { logistica.value = { un: log.unit || 'UND', cant: log.quantity, valor_unit: log.unit_price }; }
+
+    const rec = rawItems.find(i => i.item_type === 'surcharge');
+    if (rec) { recargos.value = { un: rec.unit || 'UND', cant: rec.quantity, valor_unit: rec.unit_price }; }
+}, { immediate: true });
+
+// ── Parámetros ─────────────────────────────────────────────────────────────────
+const { data: clientsData } = useParamClients();
+const client_list = computed(() => clientsData.value ?? []);
+
+const { data: linesData } = useParamLinesByClient(cliente);
+const line_list = computed(() => linesData.value ?? []);
+
+const { data: personsData } = useParamUsersByClient(cliente);
+const person_list = computed(() => personsData.value ?? []);
+
+const onClienteChange = () => { responsable.value = ''; linea.value = ''; };
+
+// ── Items ──────────────────────────────────────────────────────────────────────
+let _nextId = 1;
+const newItem = () => ({ _id: _nextId++, codigo_sap: '', descripcion: '', un: 'UND', cant: 1, valor_unit: 0 });
+
+const items = ref([newItem()]);
+const logistica = ref({ un: 'UND', cant: 0, valor_unit: 0 });
+const recargos  = ref({ un: 'UND', cant: 0, valor_unit: 0 });
+
+const addItem    = () => items.value.push(newItem());
+const removeItem = (idx) => { if (items.value.length > 1) items.value.splice(idx, 1); };
+
+// ── Cálculos ───────────────────────────────────────────────────────────────────
+const itemTotal = (item) => (item.cant || 0) * (item.valor_unit || 0);
+
+const subtotal = computed(() => {
+    const s = items.value.reduce((a, i) => a + itemTotal(i), 0);
+    const l = (logistica.value.cant || 0) * (logistica.value.valor_unit || 0);
+    const r = (recargos.value.cant  || 0) * (recargos.value.valor_unit  || 0);
+    return s + l + r;
+});
+
+const subtotalConIva = computed(() => subtotal.value * 1.19);
+
+const formatCurrency = (val) => '$' + Math.round(Number(val) || 0).toLocaleString('es-CO');
+
+// ── Guardar ────────────────────────────────────────────────────────────────────
+const { mutate: editMutate } = useEditQuotation();
+
+const guardarEdicion = () => {
+    if (!cliente.value) {
+        errorMsg.value = 'Debe seleccionar un cliente.';
+        modalErrorInstance.value?.show();
+        return;
+    }
+
+    isLoading.value = true;
+
+    const filledItems = items.value.filter(i => i.descripcion?.trim() || i.valor_unit > 0);
+
+    const allItems = [
+        ...filledItems.map(i => ({
+            sap_code: i.codigo_sap || null,
+            description: i.descripcion || null,
+            unit: i.un || null,
+            quantity: i.cant || 0,
+            unit_price: i.valor_unit || 0,
+            total_price: itemTotal(i),
+            item_type: 'item',
+        })),
+        {
+            description: 'LOGÍSTICA Y TRANSPORTE',
+            unit: logistica.value.un || null,
+            quantity: logistica.value.cant || 0,
+            unit_price: logistica.value.valor_unit || 0,
+            total_price: (logistica.value.cant || 0) * (logistica.value.valor_unit || 0),
+            item_type: 'logistics',
+        },
+        {
+            description: 'TRABAJO EN ALTURA',
+            unit: recargos.value.un || null,
+            quantity: recargos.value.cant || 0,
+            unit_price: recargos.value.valor_unit || 0,
+            total_price: (recargos.value.cant || 0) * (recargos.value.valor_unit || 0),
+            item_type: 'surcharge',
+        },
+    ];
+
+    editMutate(
+        {
+            quotation_id: quotationId.value,
+            city: ciudad.value || null,
+            activity_date: fecha.value,
+            client_id: cliente.value,
+            client_line_id: linea.value || null,
+            responsible_id: responsable.value || null,
+            phone: telefono.value || null,
+            nit: nit.value || null,
+            scope: alcance.value || null,
+            delivery_time: tiempo_entrega.value || null,
+            activity_description: descripcion_actividad.value || null,
+            execution_place: donde_ejecuta.value || null,
+            subtotal: subtotal.value,
+            subtotal_with_iva: subtotalConIva.value,
+            user_id: auth.userId,
+            items: allItems,
+        },
+        {
+            onSuccess: () => {
+                msg.value = 'Cotización actualizada correctamente.';
+                modalInstanceExito.value?.show();
+            },
+            onError: (err) => {
+                errorMsg.value = err.response?.data?.message || 'Error al actualizar la cotización.';
+                modalErrorInstance.value?.show();
+            },
+            onSettled: () => { isLoading.value = false; },
+        }
+    );
+};
+
+onMounted(() => {
+    modalInstanceExito.value = new Modal(exitoModal.value);
+    modalErrorInstance.value = new Modal(errorModal.value);
+});
+</script>
+
+<style scoped>
+body, html {
+    height: 100%;
+    font-size: 62.5%;
+    font-family: "DM Sans", serif;
+}
+
+.page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.btn-volver {
+    background-color: #e8f0f7;
+    color: #2a475f;
+    border: 1px solid #b3cde0;
+    padding: 7px 16px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: background 0.15s;
+}
+
+.btn-volver:hover { background-color: #cde0f0; }
+
+.nro-preview {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background-color: #e8f4fd;
+    border: 1px solid #b3d6f0;
+    border-radius: 6px;
+    padding: 6px 14px;
+}
+
+.nro-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #555;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+.nro-valor {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #2a475f;
+    letter-spacing: 1px;
+}
+
+.loading-state {
+    text-align: center;
+    padding: 60px;
+    color: #888;
+    font-size: 0.95rem;
+}
+
+form {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    padding: 20px;
+    border: 1px solid #ccc;
+    border-radius: 10px;
+    box-sizing: border-box;
+    margin-bottom: 20px;
+}
+
+form h2 {
+    margin-bottom: 16px;
+    color: #2a475f;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 10px;
+}
+
+label {
+    margin-bottom: 2px;
+    font-weight: 500;
+    font-size: 0.82rem;
+    color: #444;
+}
+
+input, textarea, select {
+    padding: 5px 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+    width: 100%;
+    font-size: 0.85rem;
+}
+
+input:focus, textarea:focus, select:focus {
+    outline: none;
+    border-color: #2a475f;
+    box-shadow: 0 0 0 2px rgba(42,71,95,0.15);
+}
+
+.input-readonly {
+    background-color: #f5f5f5;
+    color: #555;
+    cursor: default;
+}
+
+.seccion-titulo {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #fff;
+    background-color: #2a475f;
+    padding: 6px 12px;
+    border-radius: 4px;
+    margin-bottom: 12px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+.req { color: #c0392b; }
+
+/* ── Tabla ───────────────────────────────────────────────────────────────────── */
+.items-table-wrapper {
+    width: 100%;
+    overflow-x: auto;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    margin-bottom: 8px;
+}
+
+.items-table {
+    width: 100%;
+    min-width: 900px;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+}
+
+.items-table thead th {
+    background-color: #2a475f;
+    color: #fff;
+    padding: 8px 10px;
+    text-align: center;
+    white-space: nowrap;
+    font-size: 0.75rem;
+}
+
+.items-table tbody tr:nth-child(even) { background-color: #f8f9fa; }
+.items-table tbody tr:hover           { background-color: #eef3f8; }
+
+.items-table td {
+    padding: 4px 6px;
+    vertical-align: middle;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.th-item  { width: 50px; }
+.th-sap   { width: 110px; }
+.th-desc  { min-width: 260px; }
+.th-un    { width: 70px; }
+.th-cant  { width: 75px; }
+.th-vunit { width: 110px; }
+.th-vtotal{ width: 110px; }
+.th-accion{ width: 36px; }
+
+.input-table {
+    border: 1px solid transparent;
+    border-radius: 3px;
+    padding: 3px 6px;
+    width: 100%;
+    font-size: 0.8rem;
+    background: transparent;
+    transition: border-color 0.15s, background 0.15s;
+}
+
+.input-table:hover  { border-color: #ced4da; background: #fff; }
+.input-table:focus  { outline: none; border-color: #2a475f; background: #fff; box-shadow: 0 0 0 2px rgba(42,71,95,0.12); }
+
+.input-sap  { width: 90px; }
+.input-desc { min-width: 200px; }
+.input-un   { width: 60px; text-align: center; }
+.input-num  { width: 80px; text-align: right; }
+
+.td-center { text-align: center; font-weight: 600; color: #555; }
+.td-total  { text-align: right; font-weight: 600; color: #2a475f; white-space: nowrap; }
+.td-accion { text-align: center; }
+
+.tr-fixed td { background-color: #f0f4f8; border-top: 1px solid #cdd8e3; }
+
+.td-label-fixed {
+    font-weight: 700;
+    font-size: 0.75rem;
+    color: #2a475f;
+    text-align: center;
+    text-transform: uppercase;
+    padding: 6px 8px;
+}
+
+.td-fixed-name { font-size: 0.78rem; color: #555; text-align: center; }
+
+.tr-subtotal td { background-color: #2a475f; color: #fff; border-top: 2px solid #1c3342; }
+
+.td-label-subtotal {
+    font-weight: 700;
+    font-size: 0.82rem;
+    text-align: right;
+    padding: 8px 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.td-subtotal-valor {
+    text-align: right;
+    font-weight: 700;
+    font-size: 0.95rem;
+    padding: 8px 10px;
+    white-space: nowrap;
+    background-color: #4caf50;
+    color: #fff;
+}
+
+.btn-remove-item {
+    background: none;
+    border: none;
+    color: #c0392b;
+    cursor: pointer;
+    font-size: 0.85rem;
+    padding: 2px 6px;
+    border-radius: 3px;
+    transition: background 0.15s;
+}
+
+.btn-remove-item:hover { background: rgba(192,57,43,0.1); }
+
+.btn-add-row-wrapper { display: flex; justify-content: flex-start; margin-top: 8px; }
+
+.btn-add-row {
+    background-color: #e8f4fd;
+    color: #2a475f;
+    border: 1px dashed #2a475f;
+    padding: 6px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.82rem;
+    font-weight: 600;
+    transition: background 0.15s;
+}
+
+.btn-add-row:hover { background-color: #cde6f7; }
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 16px;
+}
+
+.form-actions button[type="submit"] {
+    background-color: #2a475f;
+    color: white;
+    padding: 10px 28px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 600;
+    transition: background-color 0.2s;
+}
+
+.form-actions button[type="submit"]:hover:not(:disabled) { background-color: #1c3342; }
+.form-actions button[type="submit"]:disabled { opacity: 0.65; cursor: not-allowed; }
+</style>

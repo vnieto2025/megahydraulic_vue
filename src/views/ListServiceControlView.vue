@@ -2,9 +2,26 @@
     <LayoutView>
       <div class="header-titulo">
         <h1>Control de Servicio</h1>
-        <div class="total-valor" v-if="total_valor_formateado">
-          <span class="total-label">Total:</span>
-          <span class="total-amount">{{ total_valor_formateado }}</span>
+        <div class="header-actions">
+          <div class="total-valor" v-if="total_valor_formateado">
+            <span class="total-label">Total:</span>
+            <span class="total-amount">{{ total_valor_formateado }}</span>
+          </div>
+          <button class="btn-excel" @click="exportToExcel" :disabled="exportLoading" title="Exportar a Excel">
+            <svg v-if="!exportLoading" width="18" height="18" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect width="48" height="48" rx="4" fill="#217346"/>
+              <rect x="26" y="6" width="18" height="36" rx="2" fill="#1E5C38"/>
+              <rect x="26" y="6" width="18" height="36" rx="2" fill="#185C37" opacity="0.6"/>
+              <line x1="26" y1="16" x2="44" y2="16" stroke="#2E7D32" stroke-width="1.5"/>
+              <line x1="26" y1="24" x2="44" y2="24" stroke="#2E7D32" stroke-width="1.5"/>
+              <line x1="26" y1="32" x2="44" y2="32" stroke="#2E7D32" stroke-width="1.5"/>
+              <line x1="35" y1="6" x2="35" y2="42" stroke="#2E7D32" stroke-width="1.5"/>
+              <rect x="4" y="10" width="26" height="28" rx="3" fill="#107C41"/>
+              <path d="M10 18.5L14.5 25L10 31.5H13.5L16.5 26.5L19.5 31.5H23L18.5 25L23 18.5H19.5L16.5 23.5L13.5 18.5H10Z" fill="white"/>
+            </svg>
+            <span v-if="exportLoading" class="spinner-border spinner-border-sm" style="width:18px;height:18px;"></span>
+            {{ exportLoading ? 'Exportando...' : 'Exportar Excel' }}
+          </button>
         </div>
       </div>
 
@@ -550,6 +567,29 @@ const router = useRouter();
 const user_type_id = computed(() => parseInt(auth.userTypeId));
 const token_status = ref(0);
 
+// ── Exportar Excel ───────────────────────────────────────────────────────────
+const exportToExcel = async () => {
+    exportLoading.value = true;
+    try {
+        const response = await serviceControlApi.exportExcel({
+            filters: filters.value,
+            order_by: orderBy.value,
+            order_dir: orderDir.value,
+        });
+        const url = URL.createObjectURL(new Blob([response.data]));
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `control_servicio_${new Date().toISOString().slice(0, 10)}.xlsx`;
+        a.click();
+        URL.revokeObjectURL(url);
+    } catch {
+        errorMsg.value = 'Error al exportar el listado.';
+        modalErrorInstance.value?.show();
+    } finally {
+        exportLoading.value = false;
+    }
+};
+
 // ── Filtros ───────────────────────────────────────────────────────────────────
 const filters = ref({
     start_date: '',
@@ -619,6 +659,7 @@ const updatingStatus = ref({});
 const hesTimers = ref({});
 const hesIsPasting = ref({});
 const currentSolped = ref('');
+const exportLoading = ref(false);
 
 // Limpiar selección cuando los datos cambian
 watch(record_list, () => { selectedRecords.value = []; });
@@ -1038,6 +1079,39 @@ html {
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.btn-excel {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background-color: #107C41;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s, box-shadow 0.2s;
+  white-space: nowrap;
+}
+
+.btn-excel:hover:not(:disabled) {
+  background-color: #0a5c30;
+  box-shadow: 0 2px 8px rgba(16, 124, 65, 0.35);
+}
+
+.btn-excel:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 
 .total-valor {

@@ -36,4 +36,7 @@ export const serviceControlApi = {
 
     deleteScFile: (fileId, serviceControlId) =>
         http.post('/service_control/delete_sc_file', { file_id: fileId, service_control_id: serviceControlId }),
+
+    exportExcel: (payload) =>
+        http.post('/service_control/export_excel', payload, { responseType: 'blob' }),
 };

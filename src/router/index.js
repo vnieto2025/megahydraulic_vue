@@ -19,6 +19,9 @@ import EditReportAcescoView from '@/views/EditReportAcescoView.vue';
 import ControlServicioView from '@/views/ControlServicioView.vue';
 import ListServiceControlView from '@/views/ListServiceControlView.vue';
 import EditServiceControlView from '@/views/EditServiceControlView.vue';
+import CreateQuotationView from '@/views/CreateQuotationView.vue';
+import ListQuotationView from '@/views/ListQuotationView.vue';
+import EditQuotationView from '@/views/EditQuotationView.vue';
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -42,6 +45,9 @@ const router = createRouter({
     {path: '/control-servicio', name: 'control-servicio/', component: ControlServicioView},
     {path: '/ver-lista-control-servicio', name: 'ver-lista-control-servicio/', component: ListServiceControlView},
     {path: '/service-control/edit/:id', name: 'service-control/edit/', component: EditServiceControlView},
+    {path: '/quotation/create', name: 'quotation/create', component: CreateQuotationView},
+    {path: '/quotations', name: 'quotations', component: ListQuotationView},
+    {path: '/quotation/edit/:id', name: 'quotation/edit/', component: EditQuotationView},
   ]
 })
 
