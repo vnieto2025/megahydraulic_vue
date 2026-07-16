@@ -4,6 +4,9 @@ export const quotationApi = {
     getPlants: () =>
         http.post('/quotation/get_plants', {}),
 
+    getLaborTypes: () =>
+        http.post('/quotation/get_labor_types', {}),
+
     create: (data) =>
         http.post('/quotation/create', data),
 

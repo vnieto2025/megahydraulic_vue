@@ -93,6 +93,18 @@
                 </div>
             </div>
 
+            <!-- ── Totales generales ────────────────────────────────────────── -->
+            <div class="row g-3 mt-3">
+                <div class="col-md-6 form-group">
+                    <label>Valor de la actividad (sin IVA):</label>
+                    <input type="text" :value="formatCurrency(subtotal)" readonly class="input-readonly input-valor">
+                </div>
+                <div class="col-md-6 form-group">
+                    <label>Valor de la actividad (con IVA 19%):</label>
+                    <input type="text" :value="formatCurrency(subtotalConIva)" readonly class="input-readonly input-valor">
+                </div>
+            </div>
+
             <!-- ── Tabla de ítems ───────────────────────────────────────────── -->
             <div class="seccion-titulo" style="margin-top:20px">Cuadro de Cantidades</div>
 
@@ -164,6 +176,193 @@
                 <button type="button" class="btn-add-row" @click="addItem">+ Agregar fila</button>
             </div>
 
+            <hr>
+
+            <!-- ── Sección 2: Mano de Obra ──────────────────────────────────── -->
+            <div class="seccion-titulo" style="margin-top:24px">Mano de Obra</div>
+
+            <div class="items-table-wrapper">
+                <table class="items-table">
+                    <thead>
+                        <tr>
+                            <th class="th-item">#</th>
+                            <th class="th-labor-type">Tipo de mano de obra</th>
+                            <th class="th-sap">Código</th>
+                            <th class="th-un">UN</th>
+                            <th class="th-cant">Cantidad</th>
+                            <th class="th-vunit">Valor Unit.</th>
+                            <th class="th-vtotal">Total</th>
+                            <th class="th-labor-desc">Descripción</th>
+                            <th class="th-accion"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="(row, idx) in labor_items" :key="row._id">
+                            <td class="td-center">{{ idx + 1 }}</td>
+                            <td>
+                                <select v-model="row.labor_type_id" @change="onLaborTypeChange(row)" class="input-table">
+                                    <option value="">-- Seleccione --</option>
+                                    <option v-for="lt in labor_types_list" :key="lt.id" :value="lt.id">{{ lt.description }}</option>
+                                </select>
+                            </td>
+                            <td class="td-center">{{ row.code || '—' }}</td>
+                            <td class="td-center">{{ row.unit || '—' }}</td>
+                            <td><input v-model.number="row.quantity" type="number" min="0" class="input-table input-num"></td>
+                            <td class="td-total">{{ formatCurrency(row.unit_price) }}</td>
+                            <td class="td-total">{{ formatCurrency((row.quantity || 0) * (row.unit_price || 0)) }}</td>
+                            <td><textarea v-model="row.description" rows="2" class="input-table input-labor-desc" placeholder="Descripción de la actividad..."></textarea></td>
+                            <td class="td-accion">
+                                <button type="button" class="btn-remove-item" @click="removeLaborItem(idx)" title="Quitar">✕</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr class="tr-subtotal">
+                            <td colspan="7" class="td-label-subtotal">TOTAL MANO DE OBRA</td>
+                            <td class="td-subtotal-valor">{{ formatCurrency(totalLabor) }}</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <div class="btn-add-row-wrapper">
+                <button type="button" class="btn-add-row" @click="addLaborItem">+ Agregar mano de obra</button>
+            </div>
+
+            <!-- ── Sección 3: Análisis APU. Materiales ─────────────────────── -->
+            <div class="seccion-titulo" style="margin-top:24px">Análisis APU. Materiales</div>
+            <div class="items-table-wrapper">
+                <table class="items-table">
+                    <thead>
+                        <tr>
+                            <th class="th-item">#</th>
+                            <th class="th-sap">Código</th>
+                            <th class="th-desc">Descripción</th>
+                            <th class="th-un">UN</th>
+                            <th class="th-cant">Cant.</th>
+                            <th class="th-vunit">Valor Unit.</th>
+                            <th class="th-vtotal">Subtotal</th>
+                            <th class="th-labor-desc">Desar. Actividad</th>
+                            <th class="th-accion"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="(row, idx) in material_items" :key="row._id">
+                            <td class="td-center">{{ idx + 1 }}</td>
+                            <td><input v-model="row.sap_code" class="input-table"></td>
+                            <td><input v-model="row.description" class="input-table input-desc"></td>
+                            <td><input v-model="row.unit" class="input-table input-un"></td>
+                            <td><input v-model.number="row.quantity" type="number" min="0" class="input-table input-num"></td>
+                            <td><input v-model.number="row.unit_price" type="number" min="0" class="input-table input-num"></td>
+                            <td class="td-total">{{ formatCurrency((row.quantity||0)*(row.unit_price||0)) }}</td>
+                            <td><textarea v-model="row.row_description" rows="2" class="input-table input-labor-desc" placeholder="Desarrollo de la actividad..."></textarea></td>
+                            <td class="td-accion">
+                                <button type="button" class="btn-remove-item" @click="removeMaterialItem(idx)">✕</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr class="tr-subtotal">
+                            <td colspan="6" class="td-label-subtotal">TOTAL MATERIALES</td>
+                            <td class="td-subtotal-valor">{{ formatCurrency(totalMaterials) }}</td>
+                            <td colspan="2"></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            <div class="btn-add-row-wrapper">
+                <button type="button" class="btn-add-row" @click="addMaterialItem">+ Agregar material</button>
+            </div>
+
+            <!-- ── Sección 4: Análisis APU. Equipos y Herramientas ───────────── -->
+            <div class="seccion-titulo" style="margin-top:24px">Análisis APU. Equipos y Herramientas</div>
+            <div class="items-table-wrapper">
+                <table class="items-table">
+                    <thead>
+                        <tr>
+                            <th class="th-item">#</th>
+                            <th class="th-desc">Descripción</th>
+                            <th class="th-un">UN</th>
+                            <th class="th-cant">Cant.</th>
+                            <th class="th-vunit">Valor Unit.</th>
+                            <th class="th-vtotal">Subtotal</th>
+                            <th class="th-labor-desc">Desar. Actividad</th>
+                            <th class="th-accion"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="(row, idx) in equipment_items" :key="row._id">
+                            <td class="td-center">{{ idx + 1 }}</td>
+                            <td><input v-model="row.description" class="input-table input-desc"></td>
+                            <td><input v-model="row.unit" class="input-table input-un"></td>
+                            <td><input v-model.number="row.quantity" type="number" min="0" class="input-table input-num"></td>
+                            <td><input v-model.number="row.unit_price" type="number" min="0" class="input-table input-num"></td>
+                            <td class="td-total">{{ formatCurrency((row.quantity||0)*(row.unit_price||0)) }}</td>
+                            <td><textarea v-model="row.row_description" rows="2" class="input-table input-labor-desc" placeholder="Desarrollo de la actividad..."></textarea></td>
+                            <td class="td-accion">
+                                <button type="button" class="btn-remove-item" @click="removeEquipmentItem(idx)">✕</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr class="tr-subtotal">
+                            <td colspan="5" class="td-label-subtotal">TOTAL EQUIPOS Y HERRAMIENTAS</td>
+                            <td class="td-subtotal-valor">{{ formatCurrency(totalEquipment) }}</td>
+                            <td colspan="2"></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            <div class="btn-add-row-wrapper">
+                <button type="button" class="btn-add-row" @click="addEquipmentItem">+ Agregar equipo/herramienta</button>
+            </div>
+
+            <!-- ── Sección 5: Análisis APU. Recargo Horas Adicional ──────────── -->
+            <div class="seccion-titulo" style="margin-top:24px">Análisis APU. Recargo Horas Adicional</div>
+            <div class="items-table-wrapper">
+                <table class="items-table">
+                    <thead>
+                        <tr>
+                            <th class="th-item">#</th>
+                            <th class="th-desc">Descripción</th>
+                            <th class="th-un">UN</th>
+                            <th class="th-cant">Cant.</th>
+                            <th class="th-vunit">Valor Unit.</th>
+                            <th class="th-recargo">Recargo %</th>
+                            <th class="th-vtotal">Subtotal</th>
+                            <th class="th-labor-desc">Desar. Actividad</th>
+                            <th class="th-accion"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="(row, idx) in surcharge_hour_items" :key="row._id">
+                            <td class="td-center">{{ idx + 1 }}</td>
+                            <td><input v-model="row.description" class="input-table input-desc"></td>
+                            <td><input v-model="row.unit" class="input-table input-un"></td>
+                            <td><input v-model.number="row.quantity" type="number" min="0" class="input-table input-num"></td>
+                            <td><input v-model.number="row.unit_price" type="number" min="0" class="input-table input-num"></td>
+                            <td><input v-model.number="row.surcharge_percent" type="number" min="0" step="0.01" class="input-table input-num" placeholder="25"></td>
+                            <td class="td-total">{{ formatCurrency((row.quantity||0)*(row.unit_price||0)*((row.surcharge_percent||0)/100)) }}</td>
+                            <td><textarea v-model="row.row_description" rows="2" class="input-table input-labor-desc" placeholder="Desarrollo de la actividad..."></textarea></td>
+                            <td class="td-accion">
+                                <button type="button" class="btn-remove-item" @click="removeSurchargeHourItem(idx)">✕</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr class="tr-subtotal">
+                            <td colspan="6" class="td-label-subtotal">TOTAL RECARGO HORAS ADICIONAL</td>
+                            <td class="td-subtotal-valor">{{ formatCurrency(totalSurchargeHours) }}</td>
+                            <td colspan="2"></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            <div class="btn-add-row-wrapper">
+                <button type="button" class="btn-add-row" @click="addSurchargeHourItem">+ Agregar recargo</button>
+            </div>
+
             <!-- Acciones -->
             <div class="form-actions">
                 <button type="submit" :disabled="isLoading">
@@ -213,7 +412,7 @@ import { Modal } from 'bootstrap';
 import LayoutView from './Layouts/LayoutView.vue';
 import { useAuthStore } from '../stores/auth.js';
 import { useParamClients, useParamLinesByClient, useParamUsersByClient } from '../composables/useParams.js';
-import { useQuotationDetail, useEditQuotation } from '../composables/useQuotation.js';
+import { useQuotationDetail, useEditQuotation, useQuotationLaborTypes } from '../composables/useQuotation.js';
 
 const auth = useAuthStore();
 const route = useRoute();
@@ -248,45 +447,6 @@ const donde_ejecuta = ref('');
 // ── Carga detalle ──────────────────────────────────────────────────────────────
 const { data: detailData, isLoading: isLoadingDetail } = useQuotationDetail(quotationId);
 
-watch(detailData, (d) => {
-    if (!d) return;
-    quotation_number.value = d.quotation_number;
-    plant_name.value      = d.plant_name;
-    ciudad.value          = d.city || '';
-    fecha.value           = d.activity_date; // ya viene YYYY-MM-DD
-    cliente.value         = d.client_id;
-    responsable.value     = d.responsible_id || '';
-    linea.value           = d.client_line_id || '';
-    telefono.value        = d.phone || '';
-    nit.value             = d.nit || '';
-    alcance.value         = d.scope || '';
-    tiempo_entrega.value  = d.delivery_time || '';
-    descripcion_actividad.value = d.activity_description || '';
-    donde_ejecuta.value   = d.execution_place || '';
-
-    // Separar ítems por tipo
-    const rawItems = d.items || [];
-    let idCounter = 1;
-    items.value = rawItems
-        .filter(i => i.item_type === 'item')
-        .map(i => ({
-            _id: idCounter++,
-            codigo_sap: i.sap_code || '',
-            descripcion: i.description || '',
-            un: i.unit || 'UND',
-            cant: i.quantity,
-            valor_unit: i.unit_price,
-        }));
-
-    if (items.value.length === 0) items.value = [newItem()];
-
-    const log = rawItems.find(i => i.item_type === 'logistics');
-    if (log) { logistica.value = { un: log.unit || 'UND', cant: log.quantity, valor_unit: log.unit_price }; }
-
-    const rec = rawItems.find(i => i.item_type === 'surcharge');
-    if (rec) { recargos.value = { un: rec.unit || 'UND', cant: rec.quantity, valor_unit: rec.unit_price }; }
-}, { immediate: true });
-
 // ── Parámetros ─────────────────────────────────────────────────────────────────
 const { data: clientsData } = useParamClients();
 const client_list = computed(() => clientsData.value ?? []);
@@ -299,6 +459,51 @@ const person_list = computed(() => personsData.value ?? []);
 
 const onClienteChange = () => { responsable.value = ''; linea.value = ''; };
 
+// ── Mano de obra ──────────────────────────────────────────────────────────────
+const { data: laborTypesData } = useQuotationLaborTypes();
+const labor_types_list = computed(() => laborTypesData.value ?? []);
+
+let _laborNextId = 1;
+const newLaborItem = () => ({ _id: _laborNextId++, labor_type_id: '', code: '', unit: '', unit_price: 0, quantity: 1, description: '' });
+const labor_items = ref([newLaborItem()]);
+
+const addLaborItem = () => labor_items.value.push(newLaborItem());
+const removeLaborItem = (idx) => { if (labor_items.value.length > 1) labor_items.value.splice(idx, 1); };
+
+const onLaborTypeChange = (row) => {
+    const lt = labor_types_list.value.find(l => l.id === row.labor_type_id);
+    if (lt) { row.code = lt.code; row.unit = lt.unit; row.unit_price = lt.value; }
+    else { row.code = ''; row.unit = ''; row.unit_price = 0; }
+};
+
+const totalLabor = computed(() =>
+    labor_items.value.reduce((acc, r) => acc + (r.quantity || 0) * (r.unit_price || 0), 0)
+);
+
+// ── Materiales ────────────────────────────────────────────────────────────────
+let _matNextId = 1;
+const newMaterialItem = () => ({ _id: _matNextId++, sap_code: '', description: '', unit: 'UND', quantity: 1, unit_price: 0, row_description: '' });
+const material_items = ref([newMaterialItem()]);
+const addMaterialItem = () => material_items.value.push(newMaterialItem());
+const removeMaterialItem = (idx) => { if (material_items.value.length > 1) material_items.value.splice(idx, 1); };
+const totalMaterials = computed(() => material_items.value.reduce((acc, r) => acc + (r.quantity || 0) * (r.unit_price || 0), 0));
+
+// ── Equipos y Herramientas ────────────────────────────────────────────────────
+let _eqNextId = 1;
+const newEquipmentItem = () => ({ _id: _eqNextId++, description: '', unit: 'HRS', quantity: 0, unit_price: 0, row_description: '' });
+const equipment_items = ref([newEquipmentItem()]);
+const addEquipmentItem = () => equipment_items.value.push(newEquipmentItem());
+const removeEquipmentItem = (idx) => { if (equipment_items.value.length > 1) equipment_items.value.splice(idx, 1); };
+const totalEquipment = computed(() => equipment_items.value.reduce((acc, r) => acc + (r.quantity || 0) * (r.unit_price || 0), 0));
+
+// ── Recargo Horas Adicional ───────────────────────────────────────────────────
+let _surNextId = 1;
+const newSurchargeHourItem = () => ({ _id: _surNextId++, description: '', unit: 'HRS', quantity: 0, unit_price: 0, surcharge_percent: 0, row_description: '' });
+const surcharge_hour_items = ref([newSurchargeHourItem()]);
+const addSurchargeHourItem = () => surcharge_hour_items.value.push(newSurchargeHourItem());
+const removeSurchargeHourItem = (idx) => { if (surcharge_hour_items.value.length > 1) surcharge_hour_items.value.splice(idx, 1); };
+const totalSurchargeHours = computed(() => surcharge_hour_items.value.reduce((acc, r) => acc + (r.quantity || 0) * (r.unit_price || 0) * ((r.surcharge_percent || 0) / 100), 0));
+
 // ── Items ──────────────────────────────────────────────────────────────────────
 let _nextId = 1;
 const newItem = () => ({ _id: _nextId++, codigo_sap: '', descripcion: '', un: 'UND', cant: 1, valor_unit: 0 });
@@ -310,6 +515,58 @@ const recargos  = ref({ un: 'UND', cant: 0, valor_unit: 0 });
 const addItem    = () => items.value.push(newItem());
 const removeItem = (idx) => { if (items.value.length > 1) items.value.splice(idx, 1); };
 
+// ── Poblar formulario cuando lleguen los datos ─────────────────────────────────
+watch(detailData, (d) => {
+    if (!d) return;
+    quotation_number.value = d.quotation_number;
+    plant_name.value       = d.plant_name;
+    ciudad.value           = d.city || '';
+    fecha.value            = d.activity_date;
+    cliente.value          = d.client_id;
+    responsable.value      = d.responsible_id || '';
+    linea.value            = d.client_line_id || '';
+    telefono.value         = d.phone || '';
+    nit.value              = d.nit || '';
+    alcance.value          = d.scope || '';
+    tiempo_entrega.value   = d.delivery_time || '';
+    descripcion_actividad.value = d.activity_description || '';
+    donde_ejecuta.value         = d.execution_place || '';
+
+    const rawLabor = d.labor_items || [];
+    labor_items.value = rawLabor.length
+        ? rawLabor.map(l => ({ _id: _laborNextId++, labor_type_id: l.labor_type_id, code: l.code, unit: l.unit, unit_price: l.unit_price, quantity: l.quantity, description: l.row_description || '' }))
+        : [newLaborItem()];
+
+    const rawItems = d.items || [];
+    let idCounter = 1;
+    items.value = rawItems
+        .filter(i => i.item_type === 'item')
+        .map(i => ({ _id: idCounter++, codigo_sap: i.sap_code || '', descripcion: i.description || '', un: i.unit || 'UND', cant: i.quantity, valor_unit: i.unit_price }));
+
+    if (items.value.length === 0) items.value = [newItem()];
+
+    const log = rawItems.find(i => i.item_type === 'logistics');
+    if (log) logistica.value = { un: log.unit || 'UND', cant: log.quantity, valor_unit: log.unit_price };
+
+    const rec = rawItems.find(i => i.item_type === 'surcharge');
+    if (rec) recargos.value = { un: rec.unit || 'UND', cant: rec.quantity, valor_unit: rec.unit_price };
+
+    const rawMaterials = d.material_items || [];
+    material_items.value = rawMaterials.length
+        ? rawMaterials.map(i => ({ _id: _matNextId++, sap_code: i.sap_code || '', description: i.description || '', unit: i.unit || 'UND', quantity: i.quantity, unit_price: i.unit_price, row_description: i.row_description || '' }))
+        : [newMaterialItem()];
+
+    const rawEquipment = d.equipment_items || [];
+    equipment_items.value = rawEquipment.length
+        ? rawEquipment.map(i => ({ _id: _eqNextId++, description: i.description || '', unit: i.unit || 'HRS', quantity: i.quantity, unit_price: i.unit_price, row_description: i.row_description || '' }))
+        : [newEquipmentItem()];
+
+    const rawSurcharges = d.hourly_surcharge_items || [];
+    surcharge_hour_items.value = rawSurcharges.length
+        ? rawSurcharges.map(i => ({ _id: _surNextId++, description: i.description || '', unit: i.unit || 'HRS', quantity: i.quantity, unit_price: i.unit_price, surcharge_percent: i.surcharge_percent || 0, row_description: i.row_description || '' }))
+        : [newSurchargeHourItem()];
+}, { immediate: true });
+
 // ── Cálculos ───────────────────────────────────────────────────────────────────
 const itemTotal = (item) => (item.cant || 0) * (item.valor_unit || 0);
 
@@ -317,7 +574,7 @@ const subtotal = computed(() => {
     const s = items.value.reduce((a, i) => a + itemTotal(i), 0);
     const l = (logistica.value.cant || 0) * (logistica.value.valor_unit || 0);
     const r = (recargos.value.cant  || 0) * (recargos.value.valor_unit  || 0);
-    return s + l + r;
+    return s + l + r + totalLabor.value + totalMaterials.value + totalEquipment.value + totalSurchargeHours.value;
 });
 
 const subtotalConIva = computed(() => subtotal.value * 1.19);
@@ -384,6 +641,47 @@ const guardarEdicion = () => {
             subtotal_with_iva: subtotalConIva.value,
             user_id: auth.userId,
             items: allItems,
+            labor_items: labor_items.value
+                .filter(r => r.labor_type_id)
+                .map(r => ({
+                    labor_type_id: r.labor_type_id,
+                    quantity: r.quantity || 0,
+                    unit_price: r.unit_price || 0,
+                    total_price: (r.quantity || 0) * (r.unit_price || 0),
+                    description: r.description || null,
+                })),
+            material_items: material_items.value
+                .filter(r => r.description?.trim() || r.unit_price > 0)
+                .map(r => ({
+                    sap_code: r.sap_code || null,
+                    description: r.description || null,
+                    unit: r.unit || null,
+                    quantity: r.quantity || 0,
+                    unit_price: r.unit_price || 0,
+                    total_price: (r.quantity || 0) * (r.unit_price || 0),
+                    row_description: r.row_description || null,
+                })),
+            equipment_items: equipment_items.value
+                .filter(r => r.description?.trim() || r.unit_price > 0)
+                .map(r => ({
+                    description: r.description || null,
+                    unit: r.unit || null,
+                    quantity: r.quantity || 0,
+                    unit_price: r.unit_price || 0,
+                    total_price: (r.quantity || 0) * (r.unit_price || 0),
+                    row_description: r.row_description || null,
+                })),
+            hourly_surcharge_items: surcharge_hour_items.value
+                .filter(r => r.description?.trim() || r.unit_price > 0)
+                .map(r => ({
+                    description: r.description || null,
+                    unit: r.unit || null,
+                    quantity: r.quantity || 0,
+                    unit_price: r.unit_price || 0,
+                    surcharge_percent: r.surcharge_percent || 0,
+                    total_price: (r.quantity || 0) * (r.unit_price || 0) * ((r.surcharge_percent || 0) / 100),
+                    row_description: r.row_description || null,
+                })),
         },
         {
             onSuccess: () => {
@@ -565,6 +863,10 @@ input:focus, textarea:focus, select:focus {
     border-bottom: 1px solid #e9ecef;
 }
 
+.th-labor-type { min-width: 160px; }
+.th-labor-desc { min-width: 220px; }
+.th-recargo { width: 90px; }
+.input-labor-desc { width: 100%; resize: vertical; font-size: 0.8rem; min-height: 38px; }
 .th-item  { width: 50px; }
 .th-sap   { width: 110px; }
 .th-desc  { min-width: 260px; }

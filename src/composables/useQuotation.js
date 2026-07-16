@@ -2,6 +2,14 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query';
 import { computed } from 'vue';
 import { quotationApi } from '../api/quotation.js';
 
+export function useQuotationLaborTypes() {
+    return useQuery({
+        queryKey: ['quotation', 'labor-types'],
+        queryFn: () => quotationApi.getLaborTypes().then(r => r.data.data || []),
+        staleTime: 5 * 60 * 1000,
+    });
+}
+
 export function useQuotationPlants() {
     return useQuery({
         queryKey: ['quotation', 'plants'],
