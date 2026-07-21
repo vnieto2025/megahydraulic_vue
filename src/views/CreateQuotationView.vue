@@ -39,18 +39,25 @@
                     </select>
                 </div>
                 <div class="col-md-4 form-group">
-                    <label>Dirigido a (Responsable):</label>
-                    <select v-model="responsable" :disabled="!cliente">
+                    <label>Interventor (Responsable): <span class="req">*</span></label>
+                    <select v-model="responsable" :disabled="!cliente" required>
                         <option value="" disabled>-- Seleccione --</option>
                         <option v-for="p in person_list" :key="p.id" :value="p.id">{{ p.name }}</option>
                     </select>
                 </div>
                 <div class="col-md-4 form-group">
-                    <label>Área (Línea):</label>
-                    <select v-model="linea" :disabled="!cliente">
+                    <label>Área (Línea): <span class="req">*</span></label>
+                    <select v-model="linea" :disabled="!cliente" required>
                         <option value="" disabled>-- Seleccione --</option>
                         <option v-for="l in line_list" :key="l.id" :value="l.id">{{ l.name }}</option>
                     </select>
+                </div>
+            </div>
+
+            <div class="row g-3 mt-1">
+                <div class="col-md-6 form-group">
+                    <label>Dirigido a:</label>
+                    <input type="text" v-model="dirigido_a" placeholder="Nombre del destinatario...">
                 </div>
             </div>
 
@@ -61,11 +68,32 @@
                 </div>
                 <div class="col-md-4 form-group">
                     <label>Teléfono:</label>
-                    <input type="text" v-model="telefono" placeholder="Ej: 3156528752">
+                    <input type="text" v-model="telefono" readonly class="input-readonly">
                 </div>
                 <div class="col-md-4 form-group">
                     <label>NIT:</label>
-                    <input type="text" v-model="nit" placeholder="Ej: 900670270">
+                    <input type="text" v-model="nit" placeholder="Ej: 900670270" readonly class="input-readonly">
+                </div>
+            </div>
+
+            <div class="row g-3 mt-1">
+                <div class="col-md-4 form-group">
+                    <label>Componente:</label>
+                    <select v-model="componente">
+                        <option value="">-- Seleccione --</option>
+                        <option v-for="ts in component_list" :key="ts.id" :value="ts.id">{{ ts.name }}</option>
+                    </select>
+                </div>
+                <div class="col-md-4 form-group">
+                    <label>¿Fue ejecutado?</label>
+                    <div class="radio-group">
+                        <label class="radio-label">
+                            <input type="radio" v-model="fue_ejecutado" :value="1"> Sí
+                        </label>
+                        <label class="radio-label">
+                            <input type="radio" v-model="fue_ejecutado" :value="0"> No
+                        </label>
+                    </div>
                 </div>
             </div>
 
@@ -122,8 +150,30 @@
                         </tr>
                     </thead>
                     <tbody>
+                        <!-- Fila auto: suma Mano de Obra + Equipos + Recargo Horas -->
+                        <tr v-if="autoLaborTotal > 0" class="tr-auto-generated">
+                            <td class="td-center">1</td>
+                            <td></td>
+                            <td><input type="text" v-model="autoLaborDesc" class="input-table input-desc" placeholder="Descripción..."></td>
+                            <td><input type="text" v-model="autoLaborUnit" class="input-table input-un"></td>
+                            <td><input type="number" v-model.number="autoLaborQty" min="0" class="input-table input-num"></td>
+                            <td class="td-total">{{ formatCurrency(autoLaborTotal) }}</td>
+                            <td class="td-total">{{ formatCurrency(autoLaborTotal * (autoLaborQty || 1)) }}</td>
+                            <td></td>
+                        </tr>
+                        <!-- Fila auto: Materiales -->
+                        <tr v-if="autoMaterialsTotal > 0" class="tr-auto-generated">
+                            <td class="td-center">{{ autoLaborTotal > 0 ? 2 : 1 }}</td>
+                            <td></td>
+                            <td><input type="text" v-model="autoMaterialsDesc" class="input-table input-desc"></td>
+                            <td><input type="text" v-model="autoMaterialsUnit" class="input-table input-un"></td>
+                            <td><input type="number" v-model.number="autoMaterialsQty" min="0" class="input-table input-num"></td>
+                            <td class="td-total">{{ formatCurrency(autoMaterialsTotal) }}</td>
+                            <td class="td-total">{{ formatCurrency(autoMaterialsTotal * (autoMaterialsQty || 1)) }}</td>
+                            <td></td>
+                        </tr>
                         <tr v-for="(item, idx) in items" :key="item._id">
-                            <td class="td-center">{{ idx + 1 }}</td>
+                            <td class="td-center">{{ idx + 1 + (autoLaborTotal > 0 ? 1 : 0) + (autoMaterialsTotal > 0 ? 1 : 0) }}</td>
                             <td><input type="text" v-model="item.codigo_sap" class="input-table"></td>
                             <td><input type="text" v-model="item.descripcion" class="input-table input-desc"></td>
                             <td><input type="text" v-model="item.un" class="input-table input-un" placeholder="UND"></td>
@@ -150,8 +200,8 @@
                             <td class="td-fixed-name">TRABAJO EN ALTURA</td>
                             <td><input type="text" v-model="recargos.un" class="input-table input-un" placeholder="UND"></td>
                             <td><input type="number" v-model.number="recargos.cant" min="0" class="input-table input-num"></td>
-                            <td><input type="number" v-model.number="recargos.valor_unit" min="0" class="input-table input-num"></td>
-                            <td class="td-total">{{ formatCurrency(recargos.cant * recargos.valor_unit) }}</td>
+                            <td class="td-total">{{ formatCurrency(recargosValorUnit) }}</td>
+                            <td class="td-total">{{ formatCurrency(recargos.cant * recargosValorUnit) }}</td>
                             <td></td>
                         </tr>
                         <tr class="tr-subtotal">
@@ -354,6 +404,29 @@
                 <button type="button" class="btn-add-row" @click="addSurchargeHourItem">+ Agregar recargo</button>
             </div>
 
+            <hr>
+
+            <!-- ── Fotos ──────────────────────────────────────────────────────── -->
+            <div class="seccion-titulo">Fotos</div>
+            <div class="fotos-upload-area">
+                <label class="btn-agregar-foto">
+                    + Agregar fotos
+                    <input type="file" accept="image/*" multiple @change="onFotosSeleccionadas" style="display:none">
+                </label>
+            </div>
+            <div class="fotos-grid" v-if="fotos.length">
+                <div class="foto-item" v-for="(f, i) in fotos" :key="i">
+                    <img :src="f.preview" class="foto-preview" @click="fotoActiva = f.preview">
+                    <button type="button" class="btn-remove-foto" @click="removeFoto(i)">✕</button>
+                </div>
+            </div>
+
+            <!-- Lightbox -->
+            <div class="lightbox" v-if="fotoActiva" @click="fotoActiva = null">
+                <img :src="fotoActiva" class="lightbox-img" @click.stop>
+                <button class="lightbox-close" @click="fotoActiva = null">✕</button>
+            </div>
+
             <div class="form-actions mt-3">
                 <button type="submit" :disabled="isLoading">
                     <span v-if="isLoading" class="spinner-border spinner-border-sm me-1"></span>
@@ -367,12 +440,18 @@
             <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h5 class="modal-title">Cotización</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        <h5 class="modal-title">Cotización creada</h5>
                     </div>
-                    <div class="modal-body">{{ msg }}</div>
+                    <div class="modal-body">
+                        <p>{{ msg }}</p>
+                        <p class="mb-0">¿Desea generar el PDF de esta cotización?</p>
+                    </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-success" data-bs-dismiss="modal">Cerrar</button>
+                        <button type="button" class="btn btn-primary" :disabled="isPdfLoading" @click="descargarPdf">
+                            <span v-if="isPdfLoading" class="spinner-border spinner-border-sm me-1"></span>
+                            {{ isPdfLoading ? 'Generando...' : 'Generar PDF' }}
+                        </button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" @click="irALista">Cerrar</button>
                     </div>
                 </div>
             </div>
@@ -403,9 +482,9 @@ import { Modal } from 'bootstrap';
 import { useAuthStore } from '../stores/auth.js';
 import { useRouter } from 'vue-router';
 import {
-    useParamClients, useParamLinesByClient, useParamUsersByClient,
+    useParamClients, useParamLinesByClient, useParamUsersByClient, useParamComponents,
 } from '../composables/useParams.js';
-import { useQuotationPlants, useQuotationLaborTypes, useCreateQuotation } from '../composables/useQuotation.js';
+import { useQuotationPlants, useQuotationLaborTypes, useCreateQuotation, useGenerateQuotationPDF } from '../composables/useQuotation.js';
 
 const auth = useAuthStore();
 const router = useRouter();
@@ -425,9 +504,36 @@ const fecha = ref(new Date().toISOString().slice(0, 10));
 const planta_id = ref('');
 const cliente = ref('');
 const responsable = ref('');
+const dirigido_a = ref('');
 const linea = ref('');
-const telefono = ref('');
-const nit = ref('');
+const telefono = ref('3156528752');
+const nit = ref('900670270');
+const componente = ref('');
+const fue_ejecutado = ref(null);
+const fotos = ref([]);
+const fotoActiva = ref(null);
+
+const onFotosSeleccionadas = (e) => {
+    const files = Array.from(e.target.files);
+    files.forEach(file => {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            fotos.value.push({ img: ev.target.result, preview: ev.target.result });
+        };
+        reader.readAsDataURL(file);
+    });
+    e.target.value = '';
+};
+
+const removeFoto = (index) => {
+    fotos.value.splice(index, 1);
+};
+const autoLaborDesc = ref('');
+const autoLaborUnit = ref('UND');
+const autoLaborQty  = ref(1);
+const autoMaterialsDesc = ref('MATERIALES');
+const autoMaterialsUnit = ref('UND');
+const autoMaterialsQty  = ref(1);
 const alcance = ref('');
 const tiempo_entrega = ref('');
 const descripcion_actividad = ref('');
@@ -436,6 +542,9 @@ const donde_ejecuta = ref('');
 // ── Parámetros ────────────────────────────────────────────────────────────────
 const { data: plantsData } = useQuotationPlants();
 const plant_list = computed(() => plantsData.value ?? []);
+
+const { data: typeServiceData } = useParamComponents();
+const component_list = computed(() => typeServiceData.value ?? []);
 
 const nextNumber = computed(() => {
     const p = plant_list.value.find(p => p.id === planta_id.value);
@@ -503,6 +612,10 @@ const addSurchargeHourItem = () => surcharge_hour_items.value.push(newSurchargeH
 const removeSurchargeHourItem = (idx) => { if (surcharge_hour_items.value.length > 1) surcharge_hour_items.value.splice(idx, 1); };
 const totalSurchargeHours = computed(() => surcharge_hour_items.value.reduce((acc, r) => acc + (r.quantity || 0) * (r.unit_price || 0) * ((r.surcharge_percent || 0) / 100), 0));
 
+// ── Filas automáticas en Cuadro de Cantidades ─────────────────────────────────
+const autoLaborTotal = computed(() => totalLabor.value + totalEquipment.value + totalSurchargeHours.value);
+const autoMaterialsTotal = computed(() => totalMaterials.value);
+
 // ── Items dinámicos ───────────────────────────────────────────────────────────
 let _nextId = 1;
 const newItem = () => ({ _id: _nextId++, codigo_sap: '', descripcion: '', un: 'UND', cant: 1, valor_unit: 0 });
@@ -514,8 +627,9 @@ const removeItem = (idx) => {
     if (items.value.length > 1) items.value.splice(idx, 1);
 };
 
-const logistica = ref({ un: 'UND', cant: 0, valor_unit: 0 });
-const recargos = ref({ un: 'UND', cant: 0, valor_unit: 0 });
+const logistica = ref({ un: 'UND', cant: 1, valor_unit: 147300 });
+const recargos = ref({ un: 'UND', cant: 1 });
+const recargosValorUnit = computed(() => Math.round(totalLabor.value * 0.10));
 
 // ── Cálculos ──────────────────────────────────────────────────────────────────
 const itemTotal = (item) => (item.cant || 0) * (item.valor_unit || 0);
@@ -523,8 +637,10 @@ const itemTotal = (item) => (item.cant || 0) * (item.valor_unit || 0);
 const subtotal = computed(() => {
     const itemsSum = items.value.reduce((acc, i) => acc + itemTotal(i), 0);
     const logisticaTotal = (logistica.value.cant || 0) * (logistica.value.valor_unit || 0);
-    const recargosTotal = (recargos.value.cant || 0) * (recargos.value.valor_unit || 0);
-    return itemsSum + logisticaTotal + recargosTotal + totalLabor.value + totalMaterials.value + totalEquipment.value + totalSurchargeHours.value;
+    const recargosTotal = (recargos.value.cant || 0) * recargosValorUnit.value;
+    return itemsSum + logisticaTotal + recargosTotal
+        + autoLaborTotal.value * (autoLaborQty.value || 1)
+        + autoMaterialsTotal.value * (autoMaterialsQty.value || 1);
 });
 
 const subtotalConIva = computed(() => subtotal.value * 1.19);
@@ -535,8 +651,56 @@ const formatCurrency = (val) => {
     return '$' + Math.round(n).toLocaleString('es-CO');
 };
 
+// ── PDF ───────────────────────────────────────────────────────────────────────
+const lastQuotationId = ref(null);
+const isPdfLoading = ref(false);
+const { mutate: pdfMutate } = useGenerateQuotationPDF();
+
+const descargarPdf = () => {
+    if (!lastQuotationId.value) return;
+    isPdfLoading.value = true;
+    pdfMutate(lastQuotationId.value, {
+        onSettled: () => { isPdfLoading.value = false; },
+    });
+};
+
+const irALista = () => {
+    modalInstanceExito.value?.hide();
+};
+
 // ── Guardar ───────────────────────────────────────────────────────────────────
 const { mutate: createQuotationMutate } = useCreateQuotation();
+
+const limpiarFormulario = () => {
+    ciudad.value = '';
+    fecha.value = new Date().toISOString().slice(0, 10);
+    planta_id.value = '';
+    cliente.value = '';
+    responsable.value = '';
+    dirigido_a.value = '';
+    linea.value = '';
+    componente.value = '';
+    fue_ejecutado.value = null;
+    alcance.value = '';
+    tiempo_entrega.value = '';
+    descripcion_actividad.value = '';
+    donde_ejecuta.value = '';
+    autoLaborDesc.value = '';
+    autoLaborUnit.value = 'UND';
+    autoLaborQty.value = 1;
+    autoMaterialsDesc.value = 'MATERIALES';
+    autoMaterialsUnit.value = 'UND';
+    autoMaterialsQty.value = 1;
+    items.value = [newItem()];
+    labor_items.value = [newLaborItem()];
+    material_items.value = [newMaterialItem()];
+    equipment_items.value = [newEquipmentItem()];
+    surcharge_hour_items.value = [newSurchargeHourItem()];
+    logistica.value = { un: 'UND', cant: 1, valor_unit: 147300 };
+    recargos.value = { un: 'UND', cant: 1 };
+    fotos.value = [];
+    fotoActiva.value = null;
+};
 
 const guardarCotizacion = () => {
     if (!planta_id.value) {
@@ -549,6 +713,16 @@ const guardarCotizacion = () => {
         modalErrorInstance.value?.show();
         return;
     }
+    if (!linea.value) {
+        errorMsg.value = 'Debe seleccionar una línea/área.';
+        modalErrorInstance.value?.show();
+        return;
+    }
+    if (!responsable.value) {
+        errorMsg.value = 'Debe seleccionar un interventor.';
+        modalErrorInstance.value?.show();
+        return;
+    }
 
     isLoading.value = true;
 
@@ -557,7 +731,32 @@ const guardarCotizacion = () => {
 
     const filledItems = items.value.filter(i => i.descripcion?.trim() || i.valor_unit > 0);
 
+    const autoItemsList = [];
+    if (autoLaborTotal.value > 0) {
+        autoItemsList.push({
+            sap_code: null,
+            description: autoLaborDesc.value || null,
+            unit: autoLaborUnit.value || 'UND',
+            quantity: autoLaborQty.value || 1,
+            unit_price: autoLaborTotal.value,
+            total_price: autoLaborTotal.value * (autoLaborQty.value || 1),
+            item_type: 'auto_labor',
+        });
+    }
+    if (autoMaterialsTotal.value > 0) {
+        autoItemsList.push({
+            sap_code: null,
+            description: autoMaterialsDesc.value || 'MATERIALES',
+            unit: autoMaterialsUnit.value || 'UND',
+            quantity: autoMaterialsQty.value || 1,
+            unit_price: autoMaterialsTotal.value,
+            total_price: autoMaterialsTotal.value * (autoMaterialsQty.value || 1),
+            item_type: 'auto_materials',
+        });
+    }
+
     const allItems = [
+        ...autoItemsList,
         ...filledItems.map(i => ({
             sap_code: i.codigo_sap || null,
             description: i.descripcion || null,
@@ -579,8 +778,8 @@ const guardarCotizacion = () => {
             description: 'TRABAJO EN ALTURA',
             unit: recargos.value.un || null,
             quantity: recargos.value.cant || 0,
-            unit_price: recargos.value.valor_unit || 0,
-            total_price: (recargos.value.cant || 0) * (recargos.value.valor_unit || 0),
+            unit_price: recargosValorUnit.value,
+            total_price: (recargos.value.cant || 0) * recargosValorUnit.value,
             item_type: 'surcharge',
         },
     ];
@@ -593,8 +792,11 @@ const guardarCotizacion = () => {
             client_id: cliente.value,
             client_line_id: linea.value || null,
             responsible_id: responsable.value || null,
+            directed_to: dirigido_a.value || null,
             phone: telefono.value || null,
             nit: nit.value || null,
+            component_id: componente.value || null,
+            executed: fue_ejecutado.value,
             scope: alcance.value || null,
             delivery_time: tiempo_entrega.value || null,
             activity_description: descripcion_actividad.value || null,
@@ -644,11 +846,14 @@ const guardarCotizacion = () => {
                     total_price: (r.quantity || 0) * (r.unit_price || 0) * ((r.surcharge_percent || 0) / 100),
                     row_description: r.row_description || null,
                 })),
+            fotos: fotos.value.map(f => ({ img: f.img })),
         },
         {
             onSuccess: (response) => {
                 const data = response.data.data;
+                lastQuotationId.value = data.quotation_id;
                 msg.value = `Cotización ${data.quotation_number} creada correctamente.`;
+                limpiarFormulario();
                 modalInstanceExito.value?.show();
             },
             onError: (err) => {
@@ -782,6 +987,7 @@ hr {
     vertical-align: middle;
     border-bottom: 1px solid #e9ecef;
 }
+
 
 .th-labor-type { min-width: 160px; }
 .th-labor-desc { min-width: 220px; }
@@ -984,5 +1190,139 @@ hr {
 
 .req {
     color: #c0392b;
+}
+
+.radio-group {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    padding: 6px 0;
+}
+
+.radio-label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #333;
+    cursor: pointer;
+}
+
+.radio-label input[type="radio"] {
+    width: auto;
+    cursor: pointer;
+}
+
+/* ── Fotos ─────────────────────────────────────────────────────────────────── */
+.fotos-upload-area {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.btn-agregar-foto {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    background: #2a475f;
+    color: #fff;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    transition: background 0.2s;
+}
+
+.btn-agregar-foto:hover {
+    background: #1e3549;
+}
+
+.fotos-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.foto-item {
+    position: relative;
+    width: 120px;
+    height: 120px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid #ddd;
+}
+
+.foto-preview {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    cursor: zoom-in;
+}
+
+.btn-remove-foto {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: rgba(0,0,0,0.55);
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    width: 22px;
+    height: 22px;
+    font-size: 11px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
+
+.btn-remove-foto:hover {
+    background: #c0392b;
+}
+
+.lightbox {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    cursor: zoom-out;
+}
+
+.lightbox-img {
+    max-width: 90vw;
+    max-height: 90vh;
+    object-fit: contain;
+    border-radius: 6px;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+    cursor: default;
+}
+
+.lightbox-close {
+    position: fixed;
+    top: 18px;
+    right: 24px;
+    background: rgba(255,255,255,0.15);
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.lightbox-close:hover {
+    background: #c0392b;
 }
 </style>

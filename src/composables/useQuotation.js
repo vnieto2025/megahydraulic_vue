@@ -60,3 +60,23 @@ export function useChangeStatusQuotation() {
         },
     });
 }
+
+export function useDeleteQuotationPhoto() {
+    return useMutation({
+        mutationFn: (photoId) => quotationApi.deletePhoto(photoId),
+    });
+}
+
+export function useGenerateQuotationPDF() {
+    return useMutation({
+        mutationFn: (quotationId) => quotationApi.generatePdf(quotationId),
+        onSuccess: (response, quotationId) => {
+            const url = URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Cotizacion_${quotationId}.pdf`;
+            a.click();
+            URL.revokeObjectURL(url);
+        },
+    });
+}

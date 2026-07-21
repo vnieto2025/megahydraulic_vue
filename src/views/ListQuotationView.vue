@@ -99,6 +99,9 @@
                             <td data-label="Creado por">{{ q.user_name }}</td>
                             <td data-label="Acciones" class="th-icons">
                                 <router-link :to="`/quotation/edit/${q.id}`" class="icon-btn" title="Ver / Editar"><img :src="ojo" alt="ver"></router-link>
+                                <span class="icon-btn" title="Generar PDF" @click="descargarPdf(q.id)" :class="{ 'icon-loading': pdfLoadingId === q.id }">
+                                    <img :src="pdfIcon" alt="pdf">
+                                </span>
                                 <span class="icon-btn" title="Eliminar" @click="confirmarEliminar(q.id)"><img :src="desactivar" alt="eliminar" class="icon-trash"></span>
                             </td>
                         </tr>
@@ -172,9 +175,10 @@ import { Modal } from 'bootstrap';
 import LayoutView from './Layouts/LayoutView.vue';
 import ojo from '@/assets/icons/ojo.png';
 import desactivar from '@/assets/icons/trash.svg';
+import pdfIcon from '@/assets/icons/pdf.png';
 import { useAuthStore } from '../stores/auth.js';
 import { useParamClients } from '../composables/useParams.js';
-import { useQuotationPlants, useQuotationList, useChangeStatusQuotation } from '../composables/useQuotation.js';
+import { useQuotationPlants, useQuotationList, useChangeStatusQuotation, useGenerateQuotationPDF } from '../composables/useQuotation.js';
 
 const auth = useAuthStore();
 const router = useRouter();
@@ -229,6 +233,13 @@ const limpiarFiltros = () => {
 const changePage = (newPos) => { position.value = newPos; };
 
 const { mutate: changeStatus } = useChangeStatusQuotation();
+const { mutate: generarPdf, isPending: pdfPending } = useGenerateQuotationPDF();
+const pdfLoadingId = ref(null);
+
+const descargarPdf = (id) => {
+    pdfLoadingId.value = id;
+    generarPdf(id, { onSettled: () => { pdfLoadingId.value = null; } });
+};
 
 const confirmarEliminar = (id) => {
     quotation_id_to_delete.value = id;
@@ -411,6 +422,17 @@ body, html {
 
 .icon-trash {
     filter: invert(20%) sepia(80%) saturate(400%) hue-rotate(330deg);
+}
+
+.icon-loading {
+    opacity: 0.5;
+    pointer-events: none;
+    animation: pulse 0.8s infinite alternate;
+}
+
+@keyframes pulse {
+    from { opacity: 0.5; }
+    to   { opacity: 1;   }
 }
 
 .pagination {

@@ -21,4 +21,10 @@ export const quotationApi = {
 
     changeStatus: (quotationId) =>
         http.post('/quotation/change_status', { quotation_id: quotationId }),
+
+    deletePhoto: (photoId) =>
+        http.post('/quotation/delete_photo', { photo_id: photoId }),
+
+    generatePdf: (quotationId) =>
+        http.post('/quotation/generate_pdf', { quotation_id: quotationId }, { responseType: 'blob' }),
 };
