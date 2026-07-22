@@ -71,10 +71,13 @@ export function useGenerateQuotationPDF() {
     return useMutation({
         mutationFn: (quotationId) => quotationApi.generatePdf(quotationId),
         onSuccess: (response, quotationId) => {
+            const disposition = response.headers['content-disposition'] || '';
+            const match = disposition.match(/filename=(.+)/);
+            const filename = match ? match[1] : `Cotizacion_${quotationId}.pdf`;
             const url = URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
             const a = document.createElement('a');
             a.href = url;
-            a.download = `Cotizacion_${quotationId}.pdf`;
+            a.download = filename;
             a.click();
             URL.revokeObjectURL(url);
         },
