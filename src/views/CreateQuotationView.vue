@@ -1,6 +1,6 @@
 <template>
     <LayoutView>
-        <form @submit.prevent="guardarCotizacion">
+        <form @submit.prevent="guardarCotizacion" @keydown.enter.prevent>
             <div class="form-header">
                 <h2>Crear Cotización</h2>
                 <div class="nro-preview" v-if="nextNumber">

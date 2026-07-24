@@ -11,7 +11,7 @@
 
         <div v-if="isLoadingDetail" class="loading-state">Cargando cotización...</div>
 
-        <form v-else @submit.prevent="guardarEdicion">
+        <form v-else @submit.prevent="guardarEdicion" @keydown.enter.prevent>
             <h2>Editar Cotización</h2>
 
             <!-- ── Datos generales ──────────────────────────────────────────── -->
