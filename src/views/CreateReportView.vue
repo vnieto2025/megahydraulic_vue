@@ -112,6 +112,11 @@
                     <textarea id="txt_informacion" v-model="informacion" rows="4"></textarea>
                 </div>
             </div>
+            <div class="mt-2">
+                <button type="button" class="btn btn-sm btn-outline-primary" @click="openAiModal('standard')">
+                    ✦ Asistir con IA
+                </button>
+            </div>
 
             <div class="form-group table-responsive mt-3">
                 <table class="table table-striped" v-if="tasks_list.length" border="1" cellspacing="0" cellpadding="5">
@@ -278,6 +283,11 @@
                     <textarea id="txt_recomendaciones" v-model="acesco_recomendaciones" rows="4"></textarea>
                 </div>
             </div>
+            <div class="mt-2">
+                <button type="button" class="btn btn-sm btn-outline-primary" @click="openAiModal('acesco')">
+                    ✦ Asistir con IA
+                </button>
+            </div>
 
             <hr>
 
@@ -355,6 +365,38 @@
             </div>
         </div>
 
+        <!-- Modal IA -->
+        <div class="modal fade" id="aiModalEl" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" ref="aiModal">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Asistente IA — Redacción de Reporte</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="text-muted small mb-3">Describe brevemente lo que hiciste y la IA redactará el texto formal del reporte.</p>
+                        <div class="form-group">
+                            <label><strong>Notas del técnico:</strong></label>
+                            <textarea
+                                v-model="aiNotes"
+                                rows="5"
+                                class="form-control mt-1"
+                                placeholder="Ej: cambié el sello del cilindro principal, había fuga de aceite en el vástago. Presión ajustada de 120 a 200 bar. La bomba hidráulica estaba en buen estado."
+                            ></textarea>
+                        </div>
+                        <p v-if="aiError" class="text-danger small mt-2">{{ aiError }}</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="button" class="btn btn-primary" @click="generateWithAI" :disabled="aiLoading || !aiNotes.trim()">
+                            <span v-if="aiLoading" class="spinner-border spinner-border-sm me-1"></span>
+                            {{ aiLoading ? 'Generando...' : 'Generar texto' }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Modal de error -->
         <div class="modal fade" id="errorModal" tabindex="-1" aria-labelledby="errorModalLabel" aria-hidden="true" data-bs-backdrop="static" ref="errorModal">
             <div class="modal-dialog modal-dialog-centered">
@@ -394,6 +436,7 @@ import {
 } from '../composables/useParams.js';
 import { useCreateReport, useGenerateReport } from '../composables/useReports.js';
 import { useCreateReportAcesco, useGenerateReportAcesco } from '../composables/useReportsAcesco.js';
+import { useReportAssistant } from '../composables/useAI.js';
 
 const auth = useAuthStore();
 const router = useRouter();
@@ -477,6 +520,60 @@ watch([rawTasksData, tipo_equipo], ([rawTasks, tipoEquip]) => {
         description: '',
     }));
 });
+
+// ── IA ───────────────────────────────────────────────────────────────────────
+const aiNotes = ref('');
+const aiError = ref('');
+const aiLoading = ref(false);
+const aiModal = ref(null);
+let aiModalInstance = null;
+let currentAiMode = '';
+
+const { mutate: reportAssistantMutate } = useReportAssistant();
+
+const openAiModal = (mode) => {
+    currentAiMode = mode;
+    aiNotes.value = '';
+    aiError.value = '';
+    aiModalInstance.show();
+};
+
+const generateWithAI = () => {
+    aiError.value = '';
+    aiLoading.value = true;
+    const isAcesco = currentAiMode === 'acesco';
+    const serviceNames = servicios_seleccionados.value
+        .map(id => (servicios_list.value.find(s => s.id === id) || {}).name)
+        .filter(Boolean)
+        .join(', ');
+
+    reportAssistantMutate(
+        {
+            notes: aiNotes.value.trim(),
+            equipment_name: isAcesco ? acesco_zona_trabajo.value : nombre_equipo.value,
+            service_types: isAcesco ? '' : serviceNames,
+            report_type: currentAiMode,
+        },
+        {
+            onSuccess: (data) => {
+                if (isAcesco) {
+                    if (data.service_description) acesco_descripcion_servicio.value = data.service_description;
+                    if (data.information) acesco_informacion.value = data.information;
+                    if (data.conclusions) acesco_conclusiones.value = data.conclusions;
+                    if (data.recommendations) acesco_recomendaciones.value = data.recommendations;
+                } else {
+                    if (data.service_description) descripcion_servicio.value = data.service_description;
+                    if (data.information) informacion.value = data.information;
+                }
+                aiModalInstance.hide();
+            },
+            onError: (err) => {
+                aiError.value = err.response?.data?.message || 'Error al generar texto con IA';
+            },
+            onSettled: () => { aiLoading.value = false; },
+        }
+    );
+};
 
 // ── Mutations ────────────────────────────────────────────────────────────────
 const { mutate: createReportMutate } = useCreateReport();
@@ -650,6 +747,7 @@ const onChangeTasks = () => {};
 onMounted(() => {
     modalInstance.value = new Modal(exitoModal);
     modalErrorInstance.value = new Modal(errorModal);
+    aiModalInstance = new Modal(aiModal.value);
 });
 </script>
 

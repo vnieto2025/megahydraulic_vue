@@ -25,6 +25,31 @@
         </div>
       </div>
 
+      <!-- Panel consulta IA -->
+      <div class="ai-query-panel">
+        <div class="ai-query-header" @click="aiPanelOpen = !aiPanelOpen">
+          <span>✦ Consultar con IA</span>
+          <span class="ai-chevron">{{ aiPanelOpen ? '▲' : '▼' }}</span>
+        </div>
+        <div v-if="aiPanelOpen" class="ai-query-body">
+          <div class="input-group">
+            <input
+              v-model="aiQuestion"
+              type="text"
+              class="form-control"
+              placeholder="Ej: ¿Cuántos servicios hay por facturar? ¿Cuál es el total facturado para Acesco?"
+              @keydown.enter.prevent="queryWithAI"
+            />
+            <button class="btn btn-primary" @click="queryWithAI" :disabled="aiQueryLoading || !aiQuestion.trim()">
+              <span v-if="aiQueryLoading" class="spinner-border spinner-border-sm"></span>
+              <span v-else>Consultar</span>
+            </button>
+          </div>
+          <div v-if="aiAnswer" class="ai-answer">{{ aiAnswer }}</div>
+          <p v-if="aiQueryError" class="text-danger small mt-1">{{ aiQueryError }}</p>
+        </div>
+      </div>
+
       <!-- Acordeón de filtros -->
       <div class="accordion" id="filterAccordion">
         <div class="accordion-item">
@@ -561,11 +586,29 @@ import {
 } from '../composables/useServiceControl.js';
 import { serviceControlApi } from '../api/serviceControl.js';
 import { useMutation } from '@tanstack/vue-query';
+import { useServiceQuery } from '../composables/useAI.js';
 
 const auth = useAuthStore();
 const router = useRouter();
 const user_type_id = computed(() => parseInt(auth.userTypeId));
 const token_status = ref(0);
+
+// ── Consulta IA ──────────────────────────────────────────────────────────────
+const aiPanelOpen = ref(false);
+const aiQuestion = ref('');
+const aiAnswer = ref('');
+const aiQueryError = ref('');
+const { mutate: serviceQueryMutate, isPending: aiQueryLoading } = useServiceQuery();
+
+const queryWithAI = () => {
+    if (!aiQuestion.value.trim()) return;
+    aiAnswer.value = '';
+    aiQueryError.value = '';
+    serviceQueryMutate(aiQuestion.value.trim(), {
+        onSuccess: (answer) => { aiAnswer.value = answer; },
+        onError: (err) => { aiQueryError.value = err.response?.data?.message || 'Error al consultar'; },
+    });
+};
 
 // ── Exportar Excel ───────────────────────────────────────────────────────────
 const exportToExcel = async () => {
@@ -1071,6 +1114,41 @@ html {
   height: 100%;
   font-size: 62.5%;
   font-family: "DM Sans", serif;
+}
+
+.ai-query-panel {
+  border: 1px solid #d0e4f0;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+.ai-query-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 16px;
+  background: #eaf4fb;
+  cursor: pointer;
+  font-weight: 500;
+  color: #2a475f;
+  user-select: none;
+}
+.ai-query-header:hover { background: #d6ecf8; }
+.ai-chevron { font-size: 0.75rem; }
+.ai-query-body {
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ai-answer {
+  background: #f8f9fa;
+  border-left: 3px solid #2a475f;
+  padding: 10px 14px;
+  border-radius: 4px;
+  white-space: pre-wrap;
+  font-size: 0.92rem;
+  line-height: 1.5;
 }
 
 .header-titulo {
