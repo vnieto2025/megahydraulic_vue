@@ -68,6 +68,7 @@
                     <thead>
                         <tr>
                             <th>N° Cotización</th>
+                            <th>Descripción</th>
                             <th>Fecha</th>
                             <th>Cliente</th>
                             <th>Línea</th>
@@ -82,12 +83,13 @@
                     </thead>
                     <tbody>
                         <tr v-if="quotation_list.length === 0">
-                            <td colspan="11" class="td-empty">No hay cotizaciones que mostrar.</td>
+                            <td colspan="12" class="td-empty">No hay cotizaciones que mostrar.</td>
                         </tr>
                         <tr v-for="q in quotation_list" :key="q.id">
                             <td data-label="N° Cotización">
                                 <span class="badge-numero">{{ q.quotation_number }}</span>
                             </td>
+                            <td data-label="Descripción" class="td-desc">{{ q.activity_description || '—' }}</td>
                             <td data-label="Fecha">{{ q.activity_date }}</td>
                             <td data-label="Cliente">{{ q.client_name }}</td>
                             <td data-label="Línea">{{ q.client_line_name || '—' }}</td>
@@ -101,6 +103,12 @@
                                 <router-link :to="`/quotation/edit/${q.id}`" class="icon-btn" title="Ver / Editar"><img :src="ojo" alt="ver"></router-link>
                                 <span class="icon-btn" title="Generar PDF" @click="descargarPdf(q.id)" :class="{ 'icon-loading': pdfLoadingId === q.id }">
                                     <img :src="pdfIcon" alt="pdf">
+                                </span>
+                                <span class="icon-btn icon-duplicate" title="Duplicar" @click="confirmarDuplicar(q.id, q.quotation_number)">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
+                                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                    </svg>
                                 </span>
                                 <span class="icon-btn" title="Eliminar" @click="confirmarEliminar(q.id)"><img :src="desactivar" alt="eliminar" class="icon-trash"></span>
                             </td>
@@ -144,6 +152,45 @@
             </div>
         </div>
 
+        <!-- Modal confirmación duplicar -->
+        <div class="modal fade" id="duplicarModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" ref="duplicarModal">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Confirmar duplicación</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        ¿Desea duplicar la cotización <strong>{{ quotation_number_to_duplicate }}</strong>?
+                        Se creará una nueva cotización con los mismos datos y un nuevo número. Las imágenes no serán copiadas.
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-primary" @click="duplicarCotizacion" :disabled="duplicateLoading">
+                            {{ duplicateLoading ? 'Duplicando...' : 'Sí, duplicar' }}
+                        </button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal éxito duplicación -->
+        <div class="modal fade" id="duplicadoExitoModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" ref="duplicadoExitoModal">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header bg-success text-white">
+                        <h5 class="modal-title">Cotización duplicada</h5>
+                    </div>
+                    <div class="modal-body">
+                        La cotización fue duplicada exitosamente con el número <strong>{{ duplicatedNumber }}</strong>.
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Modal error -->
         <div class="modal fade" id="errorModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" ref="errorModal">
             <div class="modal-dialog modal-dialog-centered">
@@ -178,18 +225,26 @@ import desactivar from '@/assets/icons/trash.svg';
 import pdfIcon from '@/assets/icons/pdf.png';
 import { useAuthStore } from '../stores/auth.js';
 import { useParamClients } from '../composables/useParams.js';
-import { useQuotationPlants, useQuotationList, useChangeStatusQuotation, useGenerateQuotationPDF } from '../composables/useQuotation.js';
+import { useQuotationPlants, useQuotationList, useChangeStatusQuotation, useGenerateQuotationPDF, useDuplicateQuotation } from '../composables/useQuotation.js';
 
 const auth = useAuthStore();
 const router = useRouter();
 
 const errorModal = ref(null);
 const preguntaModal = ref(null);
+const duplicarModal = ref(null);
+const duplicadoExitoModal = ref(null);
 const modalErrorInstance = ref(null);
 const modalPreguntaInstance = ref(null);
+const modalDuplicarInstance = ref(null);
+const modalDuplicadoExitoInstance = ref(null);
 const errorMsg = ref('');
 const token_status = ref(0);
 const quotation_id_to_delete = ref(null);
+const quotation_id_to_duplicate = ref(null);
+const quotation_number_to_duplicate = ref('');
+const duplicatedNumber = ref('');
+const duplicateLoading = ref(false);
 
 const limit = ref(50);
 const position = ref(1);
@@ -234,11 +289,37 @@ const changePage = (newPos) => { position.value = newPos; };
 
 const { mutate: changeStatus } = useChangeStatusQuotation();
 const { mutate: generarPdf, isPending: pdfPending } = useGenerateQuotationPDF();
+const { mutate: duplicateMutate } = useDuplicateQuotation();
 const pdfLoadingId = ref(null);
 
 const descargarPdf = (id) => {
     pdfLoadingId.value = id;
     generarPdf(id, { onSettled: () => { pdfLoadingId.value = null; } });
+};
+
+const confirmarDuplicar = (id, number) => {
+    quotation_id_to_duplicate.value = id;
+    quotation_number_to_duplicate.value = number;
+    modalDuplicarInstance.value?.show();
+};
+
+const duplicarCotizacion = () => {
+    duplicateLoading.value = true;
+    duplicateMutate({ quotation_id: quotation_id_to_duplicate.value, user_id: auth.userId }, {
+        onSuccess: (result) => {
+            duplicateLoading.value = false;
+            duplicatedNumber.value = result.quotation_number;
+            modalDuplicarInstance.value?.hide();
+            modalDuplicadoExitoInstance.value?.show();
+        },
+        onError: (err) => {
+            duplicateLoading.value = false;
+            modalDuplicarInstance.value?.hide();
+            errorMsg.value = err.response?.data?.message || 'Error al duplicar la cotización.';
+            token_status.value = err.response?.status || 0;
+            modalErrorInstance.value?.show();
+        },
+    });
 };
 
 const confirmarEliminar = (id) => {
@@ -266,6 +347,8 @@ const redirigir_dashboard = () => router.push('/dashboard');
 onMounted(() => {
     modalErrorInstance.value = new Modal(errorModal.value);
     modalPreguntaInstance.value = new Modal(preguntaModal.value);
+    modalDuplicarInstance.value = new Modal(duplicarModal.value);
+    modalDuplicadoExitoInstance.value = new Modal(duplicadoExitoModal.value);
 });
 </script>
 
@@ -388,6 +471,13 @@ body, html {
     font-size: 0.75rem;
 }
 
+.td-desc {
+    max-width: 200px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .td-money {
     text-align: right;
     font-weight: 600;
@@ -422,6 +512,15 @@ body, html {
 
 .icon-trash {
     filter: invert(20%) sepia(80%) saturate(400%) hue-rotate(330deg);
+}
+
+.icon-duplicate svg {
+    color: #2a7f3f;
+    transition: transform 0.2s;
+}
+
+.icon-duplicate:hover svg {
+    transform: scale(1.2);
 }
 
 .icon-loading {

@@ -33,4 +33,7 @@ export const paramsApi = {
 
     getTasksByEquipment: (equipmentId) =>
         http.post('/params/get_tasks_by_equipment', { equipment: equipmentId }),
+
+    getEquipmentTools: () =>
+        http.post('/params/get_equipment_tools', {}),
 };

@@ -27,4 +27,7 @@ export const quotationApi = {
 
     generatePdf: (quotationId) =>
         http.post('/quotation/generate_pdf', { quotation_id: quotationId }, { responseType: 'blob' }),
+
+    duplicate: (payload) =>
+        http.post('/quotation/duplicate', payload),
 };

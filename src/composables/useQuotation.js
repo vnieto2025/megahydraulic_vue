@@ -67,6 +67,17 @@ export function useDeleteQuotationPhoto() {
     });
 }
 
+export function useDuplicateQuotation() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (payload) => quotationApi.duplicate(payload).then(r => r.data.data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['quotation', 'list'] });
+            queryClient.invalidateQueries({ queryKey: ['quotation', 'plants'] });
+        },
+    });
+}
+
 export function useGenerateQuotationPDF() {
     return useMutation({
         mutationFn: (quotationId) => quotationApi.generatePdf(quotationId),

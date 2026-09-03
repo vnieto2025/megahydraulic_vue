@@ -100,3 +100,11 @@ export function useParamTasksByEquipment(equipmentId) {
         staleTime: STALE_5MIN,
     });
 }
+
+export function useParamEquipmentTools() {
+    return useQuery({
+        queryKey: ['params', 'equipment-tools'],
+        queryFn: () => paramsApi.getEquipmentTools().then(r => r.data.data || []),
+        staleTime: STALE_INFINITE,
+    });
+}

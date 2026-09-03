@@ -335,7 +335,17 @@
                     <tbody>
                         <tr v-for="(row, idx) in equipment_items" :key="row._id">
                             <td class="td-center">{{ idx + 1 }}</td>
-                            <td><input v-model="row.description" class="input-table input-desc"></td>
+                            <td>
+                                <input
+                                    v-model="row.description"
+                                    :list="'eq-catalog-' + row._id"
+                                    class="input-table input-desc"
+                                    @change="onEquipmentDescriptionChange(row)"
+                                >
+                                <datalist :id="'eq-catalog-' + row._id">
+                                    <option v-for="et in equipment_tools_catalog" :key="et.id" :value="et.name" />
+                                </datalist>
+                            </td>
                             <td><input v-model="row.unit" class="input-table input-un"></td>
                             <td><input v-model.number="row.quantity" type="number" min="0" class="input-table input-num"></td>
                             <td><input v-model.number="row.unit_price" type="number" min="0" class="input-table input-num"></td>
@@ -483,6 +493,7 @@ import { useAuthStore } from '../stores/auth.js';
 import { useRouter } from 'vue-router';
 import {
     useParamClients, useParamLinesByClient, useParamUsersByClient, useParamComponents,
+    useParamEquipmentTools,
 } from '../composables/useParams.js';
 import { useQuotationPlants, useQuotationLaborTypes, useCreateQuotation, useGenerateQuotationPDF } from '../composables/useQuotation.js';
 
@@ -597,12 +608,25 @@ const removeMaterialItem = (idx) => { if (material_items.value.length > 1) mater
 const totalMaterials = computed(() => material_items.value.reduce((acc, r) => acc + (r.quantity || 0) * (r.unit_price || 0), 0));
 
 // ── Equipos y Herramientas ────────────────────────────────────────────────────
+const { data: equipmentToolsData } = useParamEquipmentTools();
+const equipment_tools_catalog = computed(() => equipmentToolsData.value ?? []);
+
 let _eqNextId = 1;
 const newEquipmentItem = () => ({ _id: _eqNextId++, description: '', unit: 'HRS', quantity: 0, unit_price: 0, row_description: '' });
 const equipment_items = ref([newEquipmentItem()]);
 const addEquipmentItem = () => equipment_items.value.push(newEquipmentItem());
 const removeEquipmentItem = (idx) => { if (equipment_items.value.length > 1) equipment_items.value.splice(idx, 1); };
 const totalEquipment = computed(() => equipment_items.value.reduce((acc, r) => acc + (r.quantity || 0) * (r.unit_price || 0), 0));
+
+const onEquipmentDescriptionChange = (row) => {
+    const match = equipment_tools_catalog.value.find(
+        e => e.name.toLowerCase() === row.description.trim().toLowerCase()
+    );
+    if (match) {
+        row.unit = match.unit;
+        row.unit_price = match.unit_price;
+    }
+};
 
 // ── Recargo Horas Adicional ───────────────────────────────────────────────────
 let _surNextId = 1;
@@ -628,7 +652,7 @@ const removeItem = (idx) => {
 };
 
 const logistica = ref({ un: 'UND', cant: 1, valor_unit: 147300 });
-const recargos = ref({ un: 'UND', cant: 1 });
+const recargos = ref({ un: 'UND', cant: 0 });
 const recargosValorUnit = computed(() => Math.round(totalLabor.value * 0.10));
 
 // ── Cálculos ──────────────────────────────────────────────────────────────────

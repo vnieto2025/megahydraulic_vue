@@ -340,7 +340,15 @@
               <td data-label="Responsable">{{ record.responsible }}</td>
               <td data-label="Descripción">{{ record.description }}</td>
               <td data-label="Orden Servicio">{{ record.service_order }}</td>
-              <td data-label="Cotización">{{ record.quotation }}</td>
+              <td data-label="Cotización">
+                <router-link
+                  v-if="record.quotation_id"
+                  :to="`/quotation/edit/${record.quotation_id}`"
+                  class="quotation-link"
+                  :title="`Ver cotización ${record.quotation}`"
+                >{{ record.quotation }}</router-link>
+                <span v-else>{{ record.quotation || '—' }}</span>
+              </td>
               <td data-label="Componente">{{ record.component_name }}</td>
               <td data-label="Solped">{{ record.solped }}</td>
               <td data-label="oc">{{ record.oc }}</td>
@@ -1673,6 +1681,17 @@ html {
 .select-inline:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.quotation-link {
+  color: #2a475f;
+  font-weight: 600;
+  text-decoration: underline;
+  white-space: nowrap;
+}
+
+.quotation-link:hover {
+  color: #1a7f3c;
 }
 
 .input-hes-inline {

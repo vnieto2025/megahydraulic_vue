@@ -119,7 +119,8 @@ html, body {
 #main-data {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
 
 /* ── Cuerpo (sidebar + contenido) ── */
@@ -127,6 +128,7 @@ html, body {
   display: flex;
   flex: 1;
   min-height: 0;
+  overflow: hidden;
 }
 
 /* ── Sidebar ── */
@@ -139,6 +141,8 @@ html, body {
   transition: width 0.25s ease, min-width 0.25s ease;
   position: relative;
   flex-shrink: 0;
+  overflow-y: auto;
+  height: 100%;
 }
 
 .sidebar--collapsed {
@@ -227,7 +231,9 @@ html, body {
 .main-content {
   flex: 1;
   min-width: 0;
+  overflow-y: auto;
   overflow-x: auto;
+  height: 100%;
 }
 
 </style>
