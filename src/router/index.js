@@ -22,6 +22,7 @@ import EditServiceControlView from '@/views/EditServiceControlView.vue';
 import CreateQuotationView from '@/views/CreateQuotationView.vue';
 import ListQuotationView from '@/views/ListQuotationView.vue';
 import EditQuotationView from '@/views/EditQuotationView.vue';
+import ParametersView from '@/views/ParametersView.vue';
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -48,6 +49,7 @@ const router = createRouter({
     {path: '/quotation/create', name: 'quotation/create', component: CreateQuotationView},
     {path: '/quotations', name: 'quotations', component: ListQuotationView},
     {path: '/quotation/edit/:id', name: 'quotation/edit/', component: EditQuotationView},
+    {path: '/parameters', name: 'parameters', component: ParametersView},
   ]
 })
 

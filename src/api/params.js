@@ -36,4 +36,7 @@ export const paramsApi = {
 
     getEquipmentTools: () =>
         http.post('/params/get_equipment_tools', {}),
+
+    getServiceActivities: () =>
+        http.post('/params/get_service_activities', {}),
 };

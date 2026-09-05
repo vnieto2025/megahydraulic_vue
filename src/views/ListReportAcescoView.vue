@@ -37,13 +37,14 @@
                       {{ chip }}
                       <span class="remove-chip" @click="removeSolped(index)">x</span>
                     </div>
-                    <input 
-                      v-model="currentSolped" 
-                      @keydown.enter.prevent="addSolped" 
-                      type="text" 
-                      id="filterSolped" 
-                      class="form-control" 
-                      placeholder="Add Solped and press Enter"
+                    <input
+                      v-model="currentSolped"
+                      @keydown.enter.prevent="addSolped"
+                      @paste="onSolpedPaste"
+                      type="text"
+                      id="filterSolped"
+                      class="form-control"
+                      placeholder="Agrega un Solped y presiona Enter, o pega varios a la vez"
                     >
                   </div>
                 </div>
@@ -295,10 +296,32 @@ const { mutate: generateReport } = useGenerateReportAcesco();
 const { mutate: generateMultiple } = useGenerateMultipleReportsAcesco();
 const { mutate: changeStatus } = useChangeStatusReportAcesco();
 
+const parseSolpedTokens = (text) => (text || '')
+    .split(/[\s,;]+/)
+    .map(t => t.trim())
+    .filter(Boolean);
+
+const addSolpedTokens = (tokens) => {
+    if (!Array.isArray(filters.value.solped)) filters.value.solped = [];
+    tokens.forEach(t => {
+        if (!filters.value.solped.includes(t)) filters.value.solped.push(t);
+    });
+};
+
 const addSolped = () => {
-    if (currentSolped.value.trim()) {
-        if (!Array.isArray(filters.value.solped)) filters.value.solped = [];
-        filters.value.solped.push(currentSolped.value.trim());
+    const tokens = parseSolpedTokens(currentSolped.value);
+    if (tokens.length) {
+        addSolpedTokens(tokens);
+        currentSolped.value = '';
+    }
+};
+
+const onSolpedPaste = (event) => {
+    const text = event.clipboardData?.getData('text') || '';
+    const tokens = parseSolpedTokens(text);
+    if (tokens.length > 1) {
+        event.preventDefault();
+        addSolpedTokens(tokens);
         currentSolped.value = '';
     }
 };

@@ -176,7 +176,18 @@
                         <tr v-for="(item, idx) in items" :key="item._id">
                             <td class="td-center">{{ idx + 1 + (autoLaborTotal > 0 ? 1 : 0) + (autoMaterialsTotal > 0 ? 1 : 0) }}</td>
                             <td><input v-model="item.codigo_sap" class="input-table input-sap" placeholder="—"></td>
-                            <td><input v-model="item.descripcion" class="input-table input-desc" placeholder="Descripción del servicio"></td>
+                            <td>
+                                <input
+                                    v-model="item.descripcion"
+                                    :list="'act-catalog-' + item._id"
+                                    class="input-table input-desc"
+                                    placeholder="Descripción del servicio"
+                                    @change="onItemDescriptionChange(item)"
+                                >
+                                <datalist :id="'act-catalog-' + item._id">
+                                    <option v-for="a in service_activities_catalog" :key="a.id" :value="a.description" />
+                                </datalist>
+                            </td>
                             <td><input v-model="item.un" class="input-table input-un"></td>
                             <td><input v-model.number="item.cant" type="number" min="0" class="input-table input-num"></td>
                             <td><input v-model.number="item.valor_unit" type="number" min="0" class="input-table input-num"></td>
@@ -504,7 +515,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { Modal } from 'bootstrap';
 import LayoutView from './Layouts/LayoutView.vue';
 import { useAuthStore } from '../stores/auth.js';
-import { useParamClients, useParamLinesByClient, useParamUsersByClient, useParamComponents, useParamEquipmentTools } from '../composables/useParams.js';
+import { useParamClients, useParamLinesByClient, useParamUsersByClient, useParamComponents, useParamEquipmentTools, useParamServiceActivities } from '../composables/useParams.js';
 import { useQuotationDetail, useEditQuotation, useQuotationLaborTypes, useDeleteQuotationPhoto } from '../composables/useQuotation.js';
 import apiUrl from '../../config.js';
 
@@ -662,6 +673,9 @@ const autoLaborTotal = computed(() => totalLabor.value + totalEquipment.value + 
 const autoMaterialsTotal = computed(() => totalMaterials.value);
 
 // ── Items ──────────────────────────────────────────────────────────────────────
+const { data: serviceActivitiesData } = useParamServiceActivities();
+const service_activities_catalog = computed(() => serviceActivitiesData.value ?? []);
+
 let _nextId = 1;
 const newItem = () => ({ _id: _nextId++, codigo_sap: '', descripcion: '', un: 'UND', cant: 1, valor_unit: 0 });
 
@@ -672,6 +686,16 @@ const recargosValorUnit = computed(() => Math.round(totalLabor.value * 0.10));
 
 const addItem    = () => items.value.push(newItem());
 const removeItem = (idx) => { if (items.value.length > 1) items.value.splice(idx, 1); };
+
+const onItemDescriptionChange = (item) => {
+    const match = service_activities_catalog.value.find(
+        a => a.description.toLowerCase() === item.descripcion.trim().toLowerCase()
+    );
+    if (match) {
+        item.codigo_sap = match.sap_code || '';
+        item.valor_unit = match.unit_price;
+    }
+};
 
 // ── Poblar formulario cuando lleguen los datos ─────────────────────────────────
 watch(detailData, (d) => {

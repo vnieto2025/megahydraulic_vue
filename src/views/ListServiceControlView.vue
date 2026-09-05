@@ -7,6 +7,12 @@
             <span class="total-label">Total:</span>
             <span class="total-amount">{{ total_valor_formateado }}</span>
           </div>
+          <div class="copy-solped-wrapper">
+            <button class="btn-copy-solped" type="button" @click="copyVisibleSolped" title="Copia al portapapeles todos los Solped visibles en esta página (sin duplicados)">
+              📋 Copiar Solped
+            </button>
+            <span v-if="copySolpedFeedback" class="copy-solped-feedback">{{ copySolpedFeedback }}</span>
+          </div>
           <button class="btn-excel" @click="exportToExcel" :disabled="exportLoading" title="Exportar a Excel">
             <svg v-if="!exportLoading" width="18" height="18" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
               <rect width="48" height="48" rx="4" fill="#217346"/>
@@ -48,6 +54,16 @@
           >
             <div class="accordion-body">
               <div class="filter-container">
+                <div class="form-group">
+                  <label for="filterDescription">Palabra clave / Descripción *</label>
+                  <input
+                    v-model="descriptionSearchInput"
+                    type="text"
+                    id="filterDescription"
+                    class="form-control"
+                    placeholder="Buscar por descripción..."
+                  >
+                </div>
                 <div class="form-group">
                   <label for="filterStartDate">Fecha inicio</label>
                   <input v-model="filters.start_date" type="date" id="filterStartDate" class="form-control">
@@ -575,6 +591,38 @@ const router = useRouter();
 const user_type_id = computed(() => parseInt(auth.userTypeId));
 const token_status = ref(0);
 
+// ── Copiar Solped visibles ───────────────────────────────────────────────────
+const copySolpedFeedback = ref('');
+let copySolpedFeedbackTimer = null;
+
+const copyVisibleSolped = async () => {
+    const values = [...new Set(
+        record_list.value.map(r => (r.solped || '').trim()).filter(Boolean)
+    )];
+
+    if (values.length === 0) {
+        copySolpedFeedback.value = 'No hay Solped para copiar';
+    } else {
+        const text = values.join('\n');
+        try {
+            await navigator.clipboard.writeText(text);
+        } catch {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+        }
+        copySolpedFeedback.value = `${values.length} Solped copiado(s)`;
+    }
+
+    if (copySolpedFeedbackTimer) clearTimeout(copySolpedFeedbackTimer);
+    copySolpedFeedbackTimer = setTimeout(() => { copySolpedFeedback.value = ''; }, 2500);
+};
+
 // ── Exportar Excel ───────────────────────────────────────────────────────────
 const exportToExcel = async () => {
     exportLoading.value = true;
@@ -600,6 +648,7 @@ const exportToExcel = async () => {
 
 // ── Filtros ───────────────────────────────────────────────────────────────────
 const filters = ref({
+    description: '',
     start_date: '',
     end_date: '',
     solped: [],
@@ -614,6 +663,17 @@ const filters = ref({
     factura: '',
     invoice_date_start: '',
     invoice_date_end: ''
+});
+
+// Búsqueda en vivo por descripción (debounce para no disparar una petición por tecla)
+const descriptionSearchInput = ref('');
+let descriptionSearchTimer = null;
+watch(descriptionSearchInput, (value) => {
+    if (descriptionSearchTimer) clearTimeout(descriptionSearchTimer);
+    descriptionSearchTimer = setTimeout(() => {
+        filters.value.description = value.trim();
+        position.value = 1;
+    }, 400);
 });
 
 const limit = ref(50);
@@ -1042,10 +1102,11 @@ const applyFilters = () => { position.value = 1; };
 
 const limpiarFiltros = () => {
     filters.value = {
-        start_date: '', end_date: '', solped: [], service_status: [], report_status: [],
+        description: '', start_date: '', end_date: '', solped: [], service_status: [], report_status: [],
         client_id: '', client_line_id: '', responsible_id: '', consecutive: '',
         hes: [], oc: [], factura: '', invoice_date_start: '', invoice_date_end: ''
     };
+    descriptionSearchInput.value = '';
     currentSolped.value = '';
     position.value = 1;
 };
@@ -1094,6 +1155,40 @@ html {
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+.copy-solped-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-copy-solped {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background-color: #2a475f;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s, box-shadow 0.2s;
+  white-space: nowrap;
+}
+
+.btn-copy-solped:hover {
+  background-color: #1c3242;
+  box-shadow: 0 2px 8px rgba(42, 71, 95, 0.35);
+}
+
+.copy-solped-feedback {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #1a7f3c;
+  white-space: nowrap;
 }
 
 .btn-excel {

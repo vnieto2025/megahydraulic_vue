@@ -108,3 +108,11 @@ export function useParamEquipmentTools() {
         staleTime: STALE_INFINITE,
     });
 }
+
+export function useParamServiceActivities() {
+    return useQuery({
+        queryKey: ['params', 'service-activities'],
+        queryFn: () => paramsApi.getServiceActivities().then(r => r.data.data || []),
+        staleTime: STALE_INFINITE,
+    });
+}
