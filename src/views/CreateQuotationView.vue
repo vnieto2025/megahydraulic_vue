@@ -184,7 +184,7 @@
                                     @change="onItemDescriptionChange(item)"
                                 >
                                 <datalist :id="'act-catalog-' + item._id">
-                                    <option v-for="a in service_activities_catalog" :key="a.id" :value="a.description" />
+                                    <option v-for="a in service_activities_catalog" :key="a.id" :value="activityLabel(a)" />
                                 </datalist>
                             </td>
                             <td><input type="text" v-model="item.un" class="input-table input-un" placeholder="UND"></td>
@@ -662,11 +662,17 @@ const items = ref([newItem()]);
 
 const addItem = () => items.value.push(newItem());
 
+const activityLabel = (a) => a.sap_code ? `${a.sap_code} - ${a.description}` : a.description;
+
 const onItemDescriptionChange = (item) => {
-    const match = service_activities_catalog.value.find(
-        a => a.description.toLowerCase() === item.descripcion.trim().toLowerCase()
+    const typed = item.descripcion.trim().toLowerCase();
+    const match = service_activities_catalog.value.find(a =>
+        activityLabel(a).toLowerCase() === typed
+        || (a.sap_code && a.sap_code.toLowerCase() === typed)
+        || a.description.toLowerCase() === typed
     );
     if (match) {
+        item.descripcion = match.description;
         item.codigo_sap = match.sap_code || '';
         item.valor_unit = match.unit_price;
     }
