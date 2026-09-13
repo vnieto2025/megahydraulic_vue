@@ -78,7 +78,7 @@ const login = async () => {
 
 html {
   font-size: 62.5%;
-  font-family: "DM Sans", serif;
+  font-family: var(--font-sans, 'Inter', sans-serif);
 }
 
 body,
@@ -94,10 +94,10 @@ html {
   justify-content: center;
   align-items: center;
   padding: 16px;
-  /* Animated Background */
-  background: linear-gradient(-45deg, #0e5500, #2300eb, #23a6d5, #23d5ab);
+  /* Animated Background — navy de marca + acento ámbar, sin degradado genérico */
+  background: linear-gradient(-45deg, #14212c, #2a475f, #1c3242, #6b3f0a);
   background-size: 400% 400%;
-  animation: gradientBG 15s ease infinite;
+  animation: gradientBG 18s ease infinite;
 }
 
 @keyframes gradientBG {
@@ -198,8 +198,8 @@ html {
 }
 
 .input:focus {
-  border-color: #23a6d5;
-  box-shadow: 0 0 0 4px rgba(35, 166, 213, 0.1);
+  border-color: #d97706;
+  box-shadow: 0 0 0 4px rgba(217, 119, 6, 0.12);
   background-color: #fff;
 }
 

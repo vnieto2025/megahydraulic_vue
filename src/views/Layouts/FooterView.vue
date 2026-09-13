@@ -12,14 +12,16 @@ const fecha = new Date().getFullYear();
 
 <style scoped>
 
-footer{
-  padding: 15px;
+footer {
+  padding: 12px;
   text-align: center;
-  background-color: #2a475f;
+  background-color: #1c3242;
 }
 
 footer div span {
-    color: white;
+    color: rgba(255, 255, 255, 0.65);
+    font-size: 0.8rem;
+    letter-spacing: 0.02em;
 }
 
 </style>

@@ -133,16 +133,18 @@ html, body {
 
 /* ── Sidebar ── */
 .sidebar {
-  width: 200px;
-  min-width: 200px;
-  background-color: #2a475f;
+  width: 210px;
+  min-width: 210px;
+  background: linear-gradient(180deg, #2a475f 0%, #1c3242 100%);
   display: flex;
   flex-direction: column;
-  transition: width 0.25s ease, min-width 0.25s ease;
+  transition: width 0.25s var(--ease, ease), min-width 0.25s var(--ease, ease);
   position: relative;
   flex-shrink: 0;
   overflow-y: auto;
   height: 100%;
+  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.12);
+  z-index: 10;
 }
 
 .sidebar--collapsed {
@@ -187,28 +189,31 @@ html, body {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 14px;
+  padding: 11px 16px;
+  margin: 2px 8px;
+  border-radius: 8px;
   color: #cfd8dc;
   text-decoration: none;
   white-space: nowrap;
-  transition: background 0.2s, color 0.2s;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.15s ease;
   border-left: 3px solid transparent;
 }
 
 .sidebar-link:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.08);
   color: white;
+  transform: translateX(2px);
 }
 
 .sidebar-link.router-link-active {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(217, 119, 6, 0.18);
   color: white;
-  border-left-color: #90caf9;
+  border-left-color: var(--color-accent, #d97706);
 }
 
 .sidebar-icon {
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   flex-shrink: 0;
   filter: brightness(0) invert(1);
   opacity: 0.85;
@@ -234,6 +239,7 @@ html, body {
   overflow-y: auto;
   overflow-x: auto;
   height: 100%;
+  background-color: var(--color-bg, #f4f6f8);
 }
 
 </style>

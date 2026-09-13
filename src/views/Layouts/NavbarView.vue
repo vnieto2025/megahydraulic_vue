@@ -84,8 +84,9 @@ body {
 }
 
 header {
-  padding: 16px 24px;
-  background-color: #2a475f;
+  padding: 14px 24px;
+  background: linear-gradient(90deg, #2a475f 0%, #1c3242 100%);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
 }
 
 .profile-container {
@@ -114,7 +115,7 @@ header {
 }
 
 .avatar-wrapper:hover img {
-  border-color: rgba(255,255,255,0.9);
+  border-color: var(--color-accent, #d97706);
 }
 
 .avatar-caret {
@@ -130,13 +131,19 @@ header {
   position: absolute;
   top: calc(100% + 10px);
   left: 0;
-  min-width: 200px;
+  min-width: 210px;
   background: #fff;
-  border-radius: 8px;
-  box-shadow: 0 6px 24px rgba(0,0,0,0.18);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.18);
   z-index: 1050;
   overflow: hidden;
   border: 1px solid #e0e0e0;
+  animation: dropdownIn 0.16s ease-out;
+}
+
+@keyframes dropdownIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .dropdown-header {

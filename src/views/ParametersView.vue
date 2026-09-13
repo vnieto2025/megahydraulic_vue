@@ -392,24 +392,46 @@ onMounted(() => {
 }
 
 .param-card {
-  background: #fff;
-  border: 2px solid #e0e0e0;
-  border-radius: 10px;
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: var(--radius-md, 10px);
   padding: 18px 10px;
   text-align: center;
   cursor: pointer;
-  transition: border-color 0.2s, box-shadow 0.2s, transform 0.1s;
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm, 0 1px 3px rgba(16,24,40,.08));
+  transition: border-color var(--transition-fast, 0.2s), box-shadow var(--transition-fast, 0.2s), transform var(--transition-fast, 0.2s);
+}
+
+.param-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--color-primary, #2a475f), var(--color-accent, #d97706));
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--transition-base, 0.25s);
 }
 
 .param-card:hover {
-  border-color: #2a475f;
-  box-shadow: 0 2px 10px rgba(42, 71, 95, 0.15);
-  transform: translateY(-2px);
+  border-color: transparent;
+  box-shadow: var(--shadow-md, 0 6px 20px rgba(16,24,40,.1));
+  transform: translateY(-4px);
+}
+
+.param-card:hover::before {
+  transform: scaleX(1);
 }
 
 .param-card--active {
-  border-color: #2a475f;
-  background: #eef3f7;
+  border-color: transparent;
+  background: var(--color-primary-soft, #eaf0f4);
+}
+
+.param-card--active::before {
+  transform: scaleX(1);
 }
 
 .param-card-icon {

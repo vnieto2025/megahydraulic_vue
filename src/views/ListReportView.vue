@@ -484,13 +484,13 @@ html {
 }
 
 .bulk-actions .btn-primary {
-  background-color: #007bff;
+  background-color: var(--color-accent, #d97706);
   color: white;
 }
 
 .bulk-actions .btn-primary:hover {
-  background-color: #0056b3;
-  box-shadow: 0 4px 12px rgba(0,123,255,0.3);
+  background-color: var(--color-accent-dark, #b45f04);
+  box-shadow: 0 4px 12px rgba(217, 119, 6, 0.3);
 }
 
 .bulk-actions .btn-secondary {
@@ -529,8 +529,11 @@ html {
 }
 
 .container-list thead th {
-  background-color: #2a475f;
-  color: white;
+  background-color: var(--color-primary-soft, #eaf0f4);
+  color: var(--color-primary-dark, #1c3242);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border-bottom: 2px solid var(--color-border, #e2e8f0);
   white-space: nowrap;
   padding: 8px 10px;
   font-size: 0.78rem;

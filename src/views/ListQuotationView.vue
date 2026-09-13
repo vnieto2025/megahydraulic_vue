@@ -425,8 +425,11 @@ body, html {
 }
 
 .container-list thead th {
-    background-color: #2a475f;
-    color: white;
+    background-color: var(--color-primary-soft, #eaf0f4);
+    color: var(--color-primary-dark, #1c3242);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    border-bottom: 2px solid var(--color-border, #e2e8f0);
     white-space: nowrap;
     padding: 8px 10px;
     font-size: 0.75rem;

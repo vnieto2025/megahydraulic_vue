@@ -1040,8 +1040,8 @@ input, textarea, select {
 
 input:focus, textarea:focus, select:focus {
     outline: none;
-    border-color: #2a475f;
-    box-shadow: 0 0 0 2px rgba(42,71,95,0.15);
+    border-color: var(--color-accent, #d97706);
+    box-shadow: 0 0 0 2px var(--color-accent-soft, rgba(217, 119, 6, 0.15));
 }
 
 .input-readonly {
@@ -1054,8 +1054,9 @@ input:focus, textarea:focus, select:focus {
     font-size: 1.1rem;
     font-weight: 700;
     text-align: center;
-    color: #fff;
-    background-color: #2a475f;
+    color: var(--color-primary-dark, #1c3242);
+    background-color: var(--color-primary-soft, #eaf0f4);
+    border-left: 4px solid var(--color-accent, #d97706);
     padding: 6px 12px;
     border-radius: 4px;
     margin-bottom: 12px;
@@ -1104,8 +1105,11 @@ input:focus, textarea:focus, select:focus {
 }
 
 .items-table thead th {
-    background-color: #2a475f;
-    color: #fff;
+    background-color: var(--color-primary-soft, #eaf0f4);
+    color: var(--color-primary-dark, #1c3242);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    border-bottom: 2px solid var(--color-border, #e2e8f0);
     padding: 8px 10px;
     text-align: center;
     white-space: nowrap;
@@ -1146,7 +1150,7 @@ input:focus, textarea:focus, select:focus {
 }
 
 .input-table:hover  { border-color: #ced4da; background: #fff; }
-.input-table:focus  { outline: none; border-color: #2a475f; background: #fff; box-shadow: 0 0 0 2px rgba(42,71,95,0.12); }
+.input-table:focus  { outline: none; border-color: var(--color-accent, #d97706); background: #fff; box-shadow: 0 0 0 2px var(--color-accent-soft, rgba(217, 119, 6, 0.12)); }
 
 .input-sap  { width: 90px; }
 .input-desc { min-width: 200px; }
@@ -1170,7 +1174,7 @@ input:focus, textarea:focus, select:focus {
 
 .td-fixed-name { font-size: 0.78rem; color: #555; text-align: center; }
 
-.tr-subtotal td { background-color: #2a475f; color: #fff; border-top: 2px solid #1c3342; }
+.tr-subtotal td { background-color: var(--color-primary-soft, #eaf0f4); color: var(--color-primary-dark, #1c3242); border-top: 2px solid var(--color-accent, #d97706); }
 
 .td-label-subtotal {
     font-weight: 700;

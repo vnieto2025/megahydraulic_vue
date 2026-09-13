@@ -1,0 +1,258 @@
+/* ──────────────────────────────────────────────────────────────────────────
+   Sistema de diseño global — Mega Hydraulic
+   Tokens + overrides de Bootstrap para modernizar toda la app desde un solo
+   lugar (colores, tipografía, radios, sombras, transiciones).
+   ────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* Marca */
+  --color-primary: #2a475f;
+  --color-primary-dark: #1c3242;
+  --color-primary-light: #3d6485;
+  --color-primary-soft: #eaf0f4;
+
+  /* Acento (ámbar/cobre — industrial, evita el degradado azul-morado genérico) */
+  --color-accent: #d97706;
+  --color-accent-dark: #b45f04;
+  --color-accent-soft: #fff3e0;
+
+  /* Neutrales */
+  --color-bg: #f4f6f8;
+  --color-surface: #ffffff;
+  --color-border: #e2e8f0;
+  --color-text: #1f2933;
+  --color-text-muted: #64748b;
+
+  /* Estados */
+  --color-success: #1a7f3c;
+  --color-success-bg: #e8f5e9;
+  --color-danger: #c62828;
+  --color-danger-bg: #fdecea;
+  --color-warning: #b45f04;
+  --color-warning-bg: #fff3e0;
+
+  /* Elevación */
+  --shadow-sm: 0 1px 3px rgba(16, 24, 40, 0.08);
+  --shadow-md: 0 6px 20px rgba(16, 24, 40, 0.10);
+  --shadow-lg: 0 16px 40px rgba(16, 24, 40, 0.16);
+
+  /* Radios */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 18px;
+
+  /* Movimiento */
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-fast: 150ms var(--ease);
+  --transition-base: 220ms var(--ease);
+
+  /* Tipografía */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* ── Base ─────────────────────────────────────────────────────────────── */
+html {
+  font-family: var(--font-sans);
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+  color: var(--color-primary);
+}
+
+/* Botones "planos" (formularios que no usan las clases .btn de Bootstrap):
+   les damos el mismo radio/transición/feedback de presión que al resto de
+   la app sin tocar los colores que ya definió cada vista. */
+button {
+  border-radius: var(--radius-sm);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast), filter var(--transition-fast);
+  cursor: pointer;
+}
+
+button:active {
+  transform: translateY(1px);
+}
+
+::selection {
+  background: var(--color-accent-soft);
+  color: var(--color-primary-dark);
+}
+
+/* Scrollbar moderno (Chrome/Edge) */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: #c3ccd6;
+  border-radius: 10px;
+  border: 2px solid var(--color-bg);
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: #a9b4c0;
+}
+
+/* Foco accesible y consistente */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* ── Botones Bootstrap ────────────────────────────────────────────────── */
+.btn {
+  border-radius: var(--radius-sm) !important;
+  font-weight: 600;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast), background-color var(--transition-fast);
+}
+
+.btn:active {
+  transform: translateY(1px);
+}
+
+.btn-success {
+  background-color: var(--color-primary) !important;
+  border-color: var(--color-primary) !important;
+}
+
+.btn-success:hover {
+  background-color: var(--color-primary-dark) !important;
+  border-color: var(--color-primary-dark) !important;
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-secondary {
+  background-color: #eef1f4 !important;
+  border-color: #eef1f4 !important;
+  color: var(--color-text) !important;
+}
+
+.btn-secondary:hover {
+  background-color: #dfe4e9 !important;
+  border-color: #dfe4e9 !important;
+  color: var(--color-text) !important;
+}
+
+.btn-danger {
+  background-color: var(--color-danger) !important;
+  border-color: var(--color-danger) !important;
+}
+
+.btn-primary {
+  background-color: var(--color-accent) !important;
+  border-color: var(--color-accent) !important;
+}
+
+.btn-primary:hover {
+  background-color: var(--color-accent-dark) !important;
+  border-color: var(--color-accent-dark) !important;
+}
+
+/* ── Formularios ──────────────────────────────────────────────────────── */
+.form-control,
+.form-select,
+select,
+input[type="text"],
+input[type="number"],
+input[type="date"],
+input[type="password"],
+textarea {
+  border-radius: var(--radius-sm) !important;
+  border-color: var(--color-border) !important;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--color-accent) !important;
+  box-shadow: 0 0 0 3px var(--color-accent-soft) !important;
+}
+
+/* ── Tablas ───────────────────────────────────────────────────────────── */
+.table {
+  --bs-table-hover-bg: var(--color-primary-soft);
+}
+
+.table thead th {
+  background-color: var(--color-primary-soft);
+  color: var(--color-primary-dark);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 2px solid var(--color-border) !important;
+}
+
+.table tbody tr {
+  transition: background-color var(--transition-fast);
+}
+
+/* ── Modales ──────────────────────────────────────────────────────────── */
+.modal-content {
+  border: none;
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+
+.modal-header {
+  background-color: var(--color-primary-soft);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.modal-header .modal-title {
+  color: var(--color-primary-dark);
+  font-weight: 700;
+}
+
+.modal.fade .modal-dialog {
+  transition: transform var(--transition-base), opacity var(--transition-base);
+}
+
+/* ── Badges / Alerts / Acordeón ───────────────────────────────────────── */
+.badge {
+  border-radius: 999px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.alert {
+  border-radius: var(--radius-sm);
+  border: none;
+}
+
+.accordion-button {
+  font-weight: 600;
+  color: var(--color-primary-dark);
+}
+
+.accordion-button:not(.collapsed) {
+  background-color: var(--color-primary-soft);
+  color: var(--color-primary-dark);
+  box-shadow: none;
+}
+
+.accordion-button:focus {
+  box-shadow: 0 0 0 3px var(--color-accent-soft);
+}
+
+/* ── Transición de página (router-view) ───────────────────────────────── */
+.page-fade-enter-active,
+.page-fade-leave-active {
+  transition: opacity var(--transition-base), transform var(--transition-base);
+}
+.page-fade-enter-from {
+  opacity: 0;
+  transform: translateY(6px);
+}
+.page-fade-leave-to {
+  opacity: 0;
+}
