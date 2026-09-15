@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query';
+import { useQuery, useMutation, useQueryClient } from './useSimpleQuery.js';
 import { serviceControlApi } from '../api/serviceControl.js';
 
 export function useServiceControlList(payload) {

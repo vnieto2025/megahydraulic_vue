@@ -53,19 +53,17 @@ const router = createRouter({
   ]
 })
 
-router.beforeEach((to, from, next) => {
+router.beforeEach((to) => {
   // useAuthStore() se llama aquí dentro (en runtime), cuando Pinia ya está instalada
   const auth = useAuthStore();
 
   if (to.path === '/' || to.name === 'login') {
-    next();
-  } else {
-    if (!auth.isAuthenticated) {
-      next({ name: 'login' });
-    } else {
-      next();
-    }
+    return true;
   }
+  if (!auth.isAuthenticated) {
+    return { name: 'login' };
+  }
+  return true;
 });
 
 export default router

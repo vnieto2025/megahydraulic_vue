@@ -3,6 +3,7 @@
       <div class="header-titulo">
         <h1>Control de Servicio</h1>
         <div class="header-actions">
+          <router-link :to="{ name: 'control-servicio/' }" class="btn-crear">+ Crear Control de Servicio</router-link>
           <div class="total-valor" v-if="total_valor_formateado">
             <span class="total-label">Total:</span>
             <span class="total-amount">{{ total_valor_formateado }}</span>
@@ -584,7 +585,7 @@ import {
     useConvertToReport, useConvertMultiple, useChangeStatusServiceControl,
 } from '../composables/useServiceControl.js';
 import { serviceControlApi } from '../api/serviceControl.js';
-import { useMutation } from '@tanstack/vue-query';
+import { useMutation } from '../composables/useSimpleQuery.js';
 
 const auth = useAuthStore();
 const router = useRouter();
@@ -1161,6 +1162,27 @@ html {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+}
+
+.btn-crear {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: var(--color-primary, #2a475f);
+  color: #fff;
+  text-decoration: none;
+  border: none;
+  border-radius: var(--radius-sm, 6px);
+  padding: 8px 16px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  transition: background-color var(--transition-fast, 0.15s);
+}
+
+.btn-crear:hover {
+  background-color: var(--color-primary-dark, #1c3242);
+  color: #fff;
 }
 
 .btn-copy-solped {

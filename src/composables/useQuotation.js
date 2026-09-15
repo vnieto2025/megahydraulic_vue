@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query';
+import { useQuery, useMutation, useQueryClient } from './useSimpleQuery.js';
 import { computed } from 'vue';
 import { quotationApi } from '../api/quotation.js';
 

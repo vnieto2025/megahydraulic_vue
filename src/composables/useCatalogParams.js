@@ -1,5 +1,5 @@
 import { computed } from 'vue';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query';
+import { useQuery, useMutation, useQueryClient } from './useSimpleQuery.js';
 import { catalogParamsApi } from '../api/catalogParams.js';
 
 export function useCatalogList(entity) {

@@ -250,7 +250,7 @@ import {
 } from '../composables/useParams.js';
 import { useEditReport, useGenerateReport } from '../composables/useReports.js';
 import { reportsApi } from '../api/reports.js';
-import { useMutation } from '@tanstack/vue-query';
+import { useMutation } from '../composables/useSimpleQuery.js';
 
 const auth = useAuthStore();
 const router = useRouter();

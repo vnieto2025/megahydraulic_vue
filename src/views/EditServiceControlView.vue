@@ -259,7 +259,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue';
-import { useQueryClient } from '@tanstack/vue-query';
+import { useQueryClient } from '../composables/useSimpleQuery.js';
 import { useRouter, useRoute } from 'vue-router';
 import LayoutView from '../views/Layouts/LayoutView.vue';
 import { Modal } from 'bootstrap';

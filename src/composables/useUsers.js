@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query';
+import { useQuery, useMutation, useQueryClient } from './useSimpleQuery.js';
 import { usersApi } from '../api/users.js';
 
 export function useUser(userId) {

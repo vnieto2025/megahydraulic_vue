@@ -4,7 +4,7 @@
  * Se cachean automáticamente y se comparten entre todas las vistas que los usen.
  */
 import { computed } from 'vue';
-import { useQuery } from '@tanstack/vue-query';
+import { useQuery } from './useSimpleQuery.js';
 import { paramsApi } from '../api/params.js';
 
 const STALE_5MIN = 5 * 60 * 1000;

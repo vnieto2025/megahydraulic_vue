@@ -1,6 +1,11 @@
 <template>
     <LayoutView>
-        <h1>Ver Cotizaciones</h1>
+        <div class="header-titulo">
+          <h1>Ver Cotizaciones</h1>
+          <div class="header-actions">
+            <router-link :to="{ name: 'quotation/create' }" class="btn-crear">+ Crear Cotización</router-link>
+          </div>
+        </div>
 
         <!-- Filtros -->
         <div class="accordion" id="filterAccordion">
@@ -357,6 +362,42 @@ body, html {
     height: 100%;
     font-size: 62.5%;
     font-family: "DM Sans", serif;
+}
+
+.header-titulo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.btn-crear {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: var(--color-primary, #2a475f);
+  color: #fff;
+  text-decoration: none;
+  border: none;
+  border-radius: var(--radius-sm, 6px);
+  padding: 8px 16px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  transition: background-color var(--transition-fast, 0.15s);
+}
+
+.btn-crear:hover {
+  background-color: var(--color-primary-dark, #1c3242);
+  color: #fff;
 }
 
 .accordion {

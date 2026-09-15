@@ -1,7 +1,12 @@
 <template>
     <LayoutView>
-      <h1>Listado de Clientes</h1>
-      <router-link :to="{name: 'client/addLinePerson/'}" class="button">Agregar Líneas o Persona</router-link>
+      <div class="header-titulo">
+        <h1>Listado de Clientes</h1>
+        <div class="header-actions">
+          <router-link :to="{ name: 'client/create' }" class="button">+ Crear Cliente</router-link>
+          <router-link :to="{name: 'client/addLinePerson/'}" class="button">Agregar Líneas o Persona</router-link>
+        </div>
+      </div>
       <div class="container-list" v-if="clientes_list">
         <table class="table table-striped table-hover" v-if="clientes_list">
           <thead>
@@ -315,6 +320,21 @@ input, textarea, select {
     box-sizing: border-box;
 }
 
+.header-titulo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .button {
   text-decoration: none;
   background-color: #2a475f;
@@ -323,7 +343,7 @@ input, textarea, select {
   padding: 10px 15px;
   margin: 0 5px;
   border-radius: 5px;
-  cursor: pointer; 
+  cursor: pointer;
 }
 
 
