@@ -404,11 +404,12 @@
               </td>
               <td data-label="Consecutivo">
                 <router-link
-                  v-if="record.consecutive"
+                  v-if="record.report_id"
                   :to="`/${record.type_report === 1 ? 'report-acesco' : 'report'}/edit/${record.report_id}`"
                   class="link-consecutivo"
+                  :title="record.consecutive ? '' : 'Reporte #' + record.report_id + ' (sin consecutivo asignado)'"
                 >
-                  {{ record.consecutive }}
+                  {{ record.consecutive || record.report_id }}
                 </router-link>
                 <span v-else>-</span>
               </td>
