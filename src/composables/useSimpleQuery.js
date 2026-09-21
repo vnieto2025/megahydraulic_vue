@@ -94,24 +94,37 @@ export function useMutation(options = {}) {
 
     async function mutate(variables, callOptions = {}) {
         isPending.value = true;
+
+        // Solo la llamada a mutationFn está dentro del try: si un callback
+        // (onSuccess/onSettled) lanza un error, NO debe hacerse pasar por una
+        // falla de la mutación (el guardado ya se hizo). Igual que TanStack.
+        let result;
+        let failure = null;
         try {
-            const result = await mutationFn(variables);
-            error.value = null;
-            baseOnSuccess?.(result, variables);
-            callOptions.onSuccess?.(result, variables);
-            baseOnSettled?.(result, null, variables);
-            callOptions.onSettled?.(result, null, variables);
-            return result;
+            result = await mutationFn(variables);
         } catch (err) {
-            error.value = err;
-            baseOnError?.(err, variables);
-            callOptions.onError?.(err, variables);
-            baseOnSettled?.(undefined, err, variables);
-            callOptions.onSettled?.(undefined, err, variables);
-            return undefined;
-        } finally {
-            isPending.value = false;
+            failure = err;
         }
+
+        const runCallback = (fn, ...args) => {
+            try { fn?.(...args); } catch (cbErr) { console.error('[useMutation] error en callback:', cbErr); }
+        };
+
+        error.value = failure;
+        if (failure) {
+            runCallback(baseOnError, failure, variables);
+            runCallback(callOptions.onError, failure, variables);
+            runCallback(baseOnSettled, undefined, failure, variables);
+            runCallback(callOptions.onSettled, undefined, failure, variables);
+        } else {
+            runCallback(baseOnSuccess, result, variables);
+            runCallback(callOptions.onSuccess, result, variables);
+            runCallback(baseOnSettled, result, null, variables);
+            runCallback(callOptions.onSettled, result, null, variables);
+        }
+
+        isPending.value = false;
+        return failure ? undefined : result;
     }
 
     return {
@@ -127,6 +140,12 @@ const client = {
         for (const entry of registry) {
             if (keyStartsWith(entry.keyFn(), queryKey)) entry.refetch();
         }
+    },
+    // En este reemplazo no hay caché real, así que refetchQueries e
+    // invalidateQueries hacen lo mismo: volver a pedir las queries activas
+    // cuya key empiece con el prefijo dado.
+    refetchQueries({ queryKey }) {
+        this.invalidateQueries({ queryKey });
     },
 };
 
