@@ -36,9 +36,16 @@
                             </div>
                             <div class="form-group">
                                 <label>Cliente</label>
-                                <select v-model="filters.client_id" class="form-control">
+                                <select v-model="filters.client_id" class="form-control" @change="onFilterClienteChange">
                                     <option value="">-- Todos --</option>
                                     <option v-for="c in client_list" :key="c.id" :value="c.id">{{ c.name }}</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Responsable</label>
+                                <select v-model="filters.responsible_id" class="form-control" :disabled="!filters.client_id">
+                                    <option value="">-- Todos --</option>
+                                    <option v-for="p in filter_person_list" :key="p.id" :value="p.id">{{ p.name }}</option>
                                 </select>
                             </div>
                             <div class="form-group">
@@ -229,7 +236,7 @@ import ojo from '@/assets/icons/ojo.png';
 import desactivar from '@/assets/icons/trash.svg';
 import pdfIcon from '@/assets/icons/pdf.png';
 import { useAuthStore } from '../stores/auth.js';
-import { useParamClients } from '../composables/useParams.js';
+import { useParamClients, useParamUsersByClient } from '../composables/useParams.js';
 import { useQuotationPlants, useQuotationList, useChangeStatusQuotation, useGenerateQuotationPDF, useDuplicateQuotation } from '../composables/useQuotation.js';
 
 const auth = useAuthStore();
@@ -257,6 +264,7 @@ const position = ref(1);
 const filters = ref({
     quotation_number: '',
     client_id: '',
+    responsible_id: '',
     plant_id: '',
     start_date: '',
     end_date: '',
@@ -275,6 +283,10 @@ const total_paginas = computed(() => quotationsData.value?.total_pag ?? 1);
 const { data: clientsData } = useParamClients();
 const client_list = computed(() => clientsData.value ?? []);
 
+const filterClientId = computed(() => filters.value.client_id);
+const { data: filterPersonsData } = useParamUsersByClient(filterClientId);
+const filter_person_list = computed(() => filterPersonsData.value ?? []);
+
 const { data: plantsData } = useQuotationPlants();
 const plant_list = computed(() => plantsData.value ?? []);
 
@@ -285,8 +297,10 @@ const formatCurrency = (val) => {
 
 const applyFilters = () => { position.value = 1; };
 
+const onFilterClienteChange = () => { filters.value.responsible_id = ''; };
+
 const limpiarFiltros = () => {
-    filters.value = { quotation_number: '', client_id: '', plant_id: '', start_date: '', end_date: '' };
+    filters.value = { quotation_number: '', client_id: '', responsible_id: '', plant_id: '', start_date: '', end_date: '' };
     position.value = 1;
 };
 
