@@ -151,7 +151,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <!-- Fila auto: suma Mano de Obra + Equipos + Recargo Horas -->
+                        <!-- Fila auto: suma Mano de Obra + Equipos -->
                         <tr v-if="autoLaborTotal > 0" class="tr-auto-generated">
                             <td class="td-center">1</td>
                             <td></td>
@@ -164,7 +164,7 @@
                         </tr>
                         <!-- Fila auto: Materiales -->
                         <tr v-if="autoMaterialsTotal > 0" class="tr-auto-generated">
-                            <td class="td-center">{{ autoLaborTotal > 0 ? 2 : 1 }}</td>
+                            <td class="td-center">{{ (autoLaborTotal > 0 ? 1 : 0) + 1 }}</td>
                             <td></td>
                             <td><input type="text" v-model="autoMaterialsDesc" class="input-table input-desc"></td>
                             <td><input type="text" v-model="autoMaterialsUnit" class="input-table input-un"></td>
@@ -173,8 +173,19 @@
                             <td class="td-total">{{ formatCurrency(autoMaterialsTotal * (autoMaterialsQty || 1)) }}</td>
                             <td></td>
                         </tr>
+                        <!-- Fila auto: Recargo Horas Adicional -->
+                        <tr v-if="autoRecargoTotal > 0" class="tr-auto-generated">
+                            <td class="td-center">{{ (autoLaborTotal > 0 ? 1 : 0) + (autoMaterialsTotal > 0 ? 1 : 0) + 1 }}</td>
+                            <td></td>
+                            <td><input type="text" v-model="autoRecargoDesc" class="input-table input-desc"></td>
+                            <td><input type="text" v-model="autoRecargoUnit" class="input-table input-un"></td>
+                            <td><input type="number" v-model.number="autoRecargoQty" min="0" class="input-table input-num"></td>
+                            <td class="td-total">{{ formatCurrency(autoRecargoTotal) }}</td>
+                            <td class="td-total">{{ formatCurrency(autoRecargoTotal * (autoRecargoQty || 1)) }}</td>
+                            <td></td>
+                        </tr>
                         <tr v-for="(item, idx) in items" :key="item._id">
-                            <td class="td-center">{{ idx + 1 + (autoLaborTotal > 0 ? 1 : 0) + (autoMaterialsTotal > 0 ? 1 : 0) }}</td>
+                            <td class="td-center">{{ idx + 1 + (autoLaborTotal > 0 ? 1 : 0) + (autoMaterialsTotal > 0 ? 1 : 0) + (autoRecargoTotal > 0 ? 1 : 0) }}</td>
                             <td><input v-model="item.codigo_sap" class="input-table input-sap" placeholder="—"></td>
                             <td>
                                 <input
@@ -587,6 +598,9 @@ const autoLaborQty  = ref(1);
 const autoMaterialsDesc = ref('MATERIALES');
 const autoMaterialsUnit = ref('UND');
 const autoMaterialsQty  = ref(1);
+const autoRecargoDesc = ref('RECARGO HORAS ADICIONAL');
+const autoRecargoUnit = ref('UND');
+const autoRecargoQty  = ref(1);
 const alcance = ref('');
 const tiempo_entrega = ref('');
 const descripcion_actividad = ref('');
@@ -669,8 +683,9 @@ const removeSurchargeHourItem = (idx) => { if (surcharge_hour_items.value.length
 const totalSurchargeHours = computed(() => surcharge_hour_items.value.reduce((acc, r) => acc + (r.quantity || 0) * (r.unit_price || 0) * ((r.surcharge_percent || 0) / 100), 0));
 
 // ── Filas automáticas en Cuadro de Cantidades ─────────────────────────────────
-const autoLaborTotal = computed(() => totalLabor.value + totalEquipment.value + totalSurchargeHours.value);
+const autoLaborTotal = computed(() => totalLabor.value + totalEquipment.value);
 const autoMaterialsTotal = computed(() => totalMaterials.value);
+const autoRecargoTotal = computed(() => totalSurchargeHours.value);
 
 // ── Items ──────────────────────────────────────────────────────────────────────
 const { data: serviceActivitiesData } = useParamServiceActivities();
@@ -742,6 +757,11 @@ watch(detailData, (d) => {
     autoMaterialsUnit.value = autoMats?.unit || 'UND';
     autoMaterialsQty.value  = autoMats?.quantity ?? 1;
 
+    const autoRecargo = rawItems.find(i => i.item_type === 'auto_recargo');
+    autoRecargoDesc.value = autoRecargo?.description || 'RECARGO HORAS ADICIONAL';
+    autoRecargoUnit.value = autoRecargo?.unit || 'UND';
+    autoRecargoQty.value  = autoRecargo?.quantity ?? 1;
+
     let idCounter = 1;
     items.value = rawItems
         .filter(i => i.item_type === 'item')
@@ -780,7 +800,8 @@ const subtotal = computed(() => {
     const r = (recargos.value.cant  || 0) * recargosValorUnit.value;
     return s + l + r
         + autoLaborTotal.value * (autoLaborQty.value || 1)
-        + autoMaterialsTotal.value * (autoMaterialsQty.value || 1);
+        + autoMaterialsTotal.value * (autoMaterialsQty.value || 1)
+        + autoRecargoTotal.value * (autoRecargoQty.value || 1);
 });
 
 const subtotalConIva = computed(() => subtotal.value * 1.19);
@@ -822,6 +843,17 @@ const guardarEdicion = () => {
             unit_price: autoMaterialsTotal.value,
             total_price: autoMaterialsTotal.value * (autoMaterialsQty.value || 1),
             item_type: 'auto_materials',
+        });
+    }
+    if (autoRecargoTotal.value > 0) {
+        autoItemsList.push({
+            sap_code: null,
+            description: autoRecargoDesc.value || 'RECARGO HORAS ADICIONAL',
+            unit: autoRecargoUnit.value || 'UND',
+            quantity: autoRecargoQty.value || 1,
+            unit_price: autoRecargoTotal.value,
+            total_price: autoRecargoTotal.value * (autoRecargoQty.value || 1),
+            item_type: 'auto_recargo',
         });
     }
 
