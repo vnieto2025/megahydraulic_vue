@@ -247,6 +247,10 @@ const CATALOG_CARDS = [
         entity: 'task_list', title: 'Lista de Tareas', emoji: '✅',
         fields: [{ key: 'name', label: 'Nombre', type: 'text' }],
     },
+    {
+        entity: 'ai_agent_config', title: 'Agente IA (Redacción de Reportes)', emoji: '✦',
+        fields: [],
+    },
 ];
 
 // ── Selección de tarjeta ──────────────────────────────────────────────────────

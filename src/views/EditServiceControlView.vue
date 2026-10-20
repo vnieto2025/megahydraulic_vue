@@ -59,6 +59,11 @@
                     <textarea id="txt_informacion" v-model="informacion" rows="3"></textarea>
                 </div>
             </div>
+            <div class="mt-2" v-if="aiActive">
+                <button type="button" class="btn btn-sm btn-outline-primary" @click="openAiModal">
+                    ✦ Asistir con IA
+                </button>
+            </div>
 
             <!-- Fila 3: Orden Servicio, Cotización, Componente -->
             <div class="row g-3 mt-1">
@@ -254,6 +259,38 @@
             </div>
         </div>
 
+        <!-- Modal IA -->
+        <div class="modal fade" id="aiModalEl" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" ref="aiModal">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Asistente IA — Redacción de Control de Servicio</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="text-muted small mb-3">Describe brevemente lo que hiciste y la IA redactará descripción, información y nota.</p>
+                        <div class="form-group">
+                            <label><strong>Notas del técnico:</strong></label>
+                            <textarea
+                                v-model="aiNotes"
+                                rows="5"
+                                class="form-control mt-1"
+                                placeholder="Ej: cambié el sello del cilindro principal, había fuga de aceite en el vástago. Presión ajustada de 120 a 200 bar. La bomba hidráulica estaba en buen estado."
+                            ></textarea>
+                        </div>
+                        <p v-if="aiError" class="text-danger small mt-2">{{ aiError }}</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="button" class="btn btn-primary" @click="generateWithAI" :disabled="aiLoading || !aiNotes.trim()">
+                            <span v-if="aiLoading" class="spinner-border spinner-border-sm me-1"></span>
+                            {{ aiLoading ? 'Generando...' : 'Generar texto' }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </LayoutView>
 </template>
 
@@ -269,6 +306,8 @@ import {
     useParamServiceStatuses, useParamReportStatuses, useParamComponents,
 } from '../composables/useParams.js';
 import { useServiceControl, useUpdateServiceControl, useDeleteScFile } from '../composables/useServiceControl.js';
+import { useCatalogList } from '../composables/useCatalogParams.js';
+import { useReportAssistant } from '../composables/useAI.js';
 import apiUrl from '../../config.js';
 
 const auth = useAuthStore();
@@ -412,6 +451,50 @@ watch(recordData, (val) => {
 // ── Mutations ─────────────────────────────────────────────────────────────────
 const { mutate: updateServiceControlMutate } = useUpdateServiceControl();
 
+// ── IA ───────────────────────────────────────────────────────────────────────
+const { data: aiConfigData } = useCatalogList('ai_agent_config');
+const aiActive = computed(() => (aiConfigData.value ?? [])[0]?.status === 1);
+
+const aiNotes = ref('');
+const aiError = ref('');
+const aiLoading = ref(false);
+const aiModal = ref(null);
+let aiModalInstance = null;
+
+const { mutate: reportAssistantMutate } = useReportAssistant();
+
+const openAiModal = () => {
+    aiNotes.value = '';
+    aiError.value = '';
+    aiModalInstance.show();
+};
+
+const generateWithAI = () => {
+    aiError.value = '';
+    aiLoading.value = true;
+
+    reportAssistantMutate(
+        {
+            notes: aiNotes.value.trim(),
+            equipment_name: '',
+            service_types: '',
+            report_type: 'service_control',
+        },
+        {
+            onSuccess: (data) => {
+                if (data.service_description) descripcion.value = data.service_description;
+                if (data.information) informacion.value = data.information;
+                if (data.note) nota.value = data.note;
+                aiModalInstance.hide();
+            },
+            onError: (err) => {
+                aiError.value = err.response?.data?.message || 'Error al generar texto con IA';
+            },
+            onSettled: () => { aiLoading.value = false; },
+        }
+    );
+};
+
 const guardarCambios = () => {
     isLoading.value = true;
     const [year, month, day] = fecha.value.split('-');
@@ -474,6 +557,7 @@ function redirigir_dashboard() { router.push('/dashboard'); }
 onMounted(() => {
     modalInstance.value = new Modal(exitoModal);
     modalErrorInstance.value = new Modal(errorModal);
+    aiModalInstance = new Modal(aiModal.value);
 });
 </script>
 
